@@ -66,10 +66,6 @@ export const config = {
         },
     },
 
-    health: {
-        apiUrl: process.env.HEALTH_API_URL || "https://health.clob-polymarket.com",
-    },
-
     /**
      * Chain Configuration
      */

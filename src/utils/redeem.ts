@@ -4,7 +4,6 @@ import { Wallet } from "@ethersproject/wallet";
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { Contract } from "@ethersproject/contracts";
 import { Chain, getContractConfig } from "@polymarket/clob-client";
-import { logger } from "./logger";
 import { getClobClient } from "../providers/clobclient";
 import { config } from "./config";
 
@@ -251,12 +250,12 @@ export async function redeemPositions(options: RedeemOptions): Promise<any> {
         wallet
     );
 
-    logger.info("\n=== REDEEMING POSITIONS ===");
-    logger.info(`Condition ID: ${conditionIdBytes32}`);
-    logger.info(`Index Sets: ${indexSets.join(", ")}`);
-    logger.info(`Collateral Token: ${contractConfig.collateral}`);
-    logger.info(`Parent Collection ID: ${parentCollectionId}`);
-    logger.info(`Wallet: ${address}`);
+    console.log(`[INFO] \n=== REDEEMING POSITIONS ===`);
+    console.log(`[INFO] Condition ID: ${conditionIdBytes32}`);
+    console.log(`[INFO] Index Sets: ${indexSets.join(", ")}`);
+    console.log(`[INFO] Collateral Token: ${contractConfig.collateral}`);
+    console.log(`[INFO] Parent Collection ID: ${parentCollectionId}`);
+    console.log(`[INFO] Wallet: ${address}`);
 
     // Configure gas options
     let gasOptions: { gasPrice?: BigNumber; gasLimit?: number } = {};
@@ -275,7 +274,7 @@ export async function redeemPositions(options: RedeemOptions): Promise<any> {
 
     try {
         // Call redeemPositions
-        logger.info("Calling redeemPositions on CTF contract...");
+        console.log(`[INFO] Calling redeemPositions on CTF contract...`);
         const tx = await ctfContract.redeemPositions(
             contractConfig.collateral,
             parentCollectionId,
@@ -284,24 +283,24 @@ export async function redeemPositions(options: RedeemOptions): Promise<any> {
             gasOptions
         );
 
-        logger.info(`Transaction sent: ${tx.hash}`);
-        logger.info("Waiting for confirmation...");
+        console.log(`[INFO] Transaction sent: ${tx.hash}`);
+        console.log(`[INFO] Waiting for confirmation...`);
 
         // Wait for transaction to be mined
         const receipt = await tx.wait();
         
-        logger.success(`Transaction confirmed in block ${receipt.blockNumber}`);
-        logger.info(`Gas used: ${receipt.gasUsed.toString()}`);
-        logger.success("\n=== REDEEM COMPLETE ===");
+        console.log(`[SUCCESS] Transaction confirmed in block ${receipt.blockNumber}`);
+        console.log(`[INFO] Gas used: ${receipt.gasUsed.toString()}`);
+        console.log(`[SUCCESS] \n=== REDEEM COMPLETE ===`);
 
         return receipt;
     } catch (error: any) {
-        logger.error("Failed to redeem positions", error);
+        console.log(`[ERROR] Failed to redeem positions`, error);
         if (error.reason) {
-            logger.error("Reason", error.reason);
+            console.log(`[ERROR] Reason`, error.reason);
         }
         if (error.data) {
-            logger.error("Data", error.data);
+            console.log(`[ERROR] Data`, error.data);
         }
         throw error;
     }
@@ -359,7 +358,7 @@ async function retryWithBackoff<T>(
             
             // Calculate delay with exponential backoff
             const delay = delayMs * Math.pow(2, attempt - 1);
-            logger.warning(`Attempt ${attempt}/${maxRetries} failed: ${errorMsg}. Retrying in ${delay}ms...`);
+            console.log(`[WARNING] Attempt ${attempt}/${maxRetries} failed: ${errorMsg}. Retrying in ${delay}ms...`);
             await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
@@ -421,7 +420,7 @@ export async function redeemMarket(
     const wallet = new Wallet(privateKey, provider);
     const walletAddress = await wallet.getAddress();
     
-    logger.info("\n=== CHECKING MARKET RESOLUTION ===");
+    console.log(`[INFO] \n=== CHECKING MARKET RESOLUTION ===`);
     
     // Check if condition is resolved and get winning outcomes
     const resolution = await checkConditionResolution(conditionId, chainIdValue);
@@ -434,10 +433,10 @@ export async function redeemMarket(
         throw new Error("Condition is resolved but no winning outcomes found");
     }
     
-    logger.info(`Winning indexSets: ${resolution.winningIndexSets.join(", ")}`);
+    console.log(`[INFO] Winning indexSets: ${resolution.winningIndexSets.join(", ")}`);
     
     // Get user's token balances for this condition
-    logger.info("Checking your token balances...");
+    console.log(`[INFO] Checking your token balances...`);
     const userBalances = await getUserTokenBalances(conditionId, walletAddress, chainIdValue);
     
     if (userBalances.size === 0) {
@@ -460,14 +459,14 @@ export async function redeemMarket(
     }
     
     // Log what will be redeemed
-    logger.info(`\nYou hold winning tokens for indexSets: ${redeemableIndexSets.join(", ")}`);
+    console.log(`[INFO] \nYou hold winning tokens for indexSets: ${redeemableIndexSets.join(", ")}`);
     for (const indexSet of redeemableIndexSets) {
         const balance = userBalances.get(indexSet);
-        logger.info(`  IndexSet ${indexSet}: ${balance?.toString() || "0"} tokens`);
+        console.log(`[INFO]   IndexSet ${indexSet}: ${balance?.toString() || "0"} tokens`);
     }
     
     // Redeem only the winning outcomes user holds
-    logger.info(`\nRedeeming winning positions: ${redeemableIndexSets.join(", ")}`);
+    console.log(`[INFO] \nRedeeming winning positions: ${redeemableIndexSets.join(", ")}`);
     
     // Use retry logic for redemption (handles RPC/network errors)
     return retryWithBackoff(
@@ -554,9 +553,9 @@ export async function checkConditionResolution(
                 }
             }
             
-            logger.info(`Condition resolved. Winning indexSets: ${winningIndexSets.join(", ")}`);
+            console.log(`[INFO] Condition resolved. Winning indexSets: ${winningIndexSets.join(", ")}`);
         } else {
-            logger.info("Condition not yet resolved");
+            console.log(`[INFO] Condition not yet resolved`);
         }
         
         return {
@@ -571,7 +570,7 @@ export async function checkConditionResolution(
         };
     } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.error("Failed to check condition resolution", error);
+        console.log(`[ERROR] Failed to check condition resolution`, error);
         return {
             isResolved: false,
             winningIndexSets: [],
@@ -659,7 +658,7 @@ export async function getUserTokenBalances(
             }
         }
     } catch (error) {
-        logger.error("Failed to get user token balances", error);
+        console.log(`[ERROR] Failed to get user token balances`, error);
     }
     
     return balances;
@@ -732,7 +731,7 @@ export async function isMarketResolved(conditionId: string): Promise<{
         }
     } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.error("Failed to check market status", error);
+        console.log(`[ERROR] Failed to check market status`, error);
         return {
             isResolved: false,
             reason: `Error checking market: ${errorMsg}`,
@@ -783,7 +782,7 @@ export async function autoRedeemResolvedMarkets(options?: {
     let redeemedCount = 0;
     let failedCount = 0;
     
-    logger.info(`\n=== AUTO-REDEEM: Checking ${marketIds.length} markets ===`);
+    console.log(`[INFO] \n=== AUTO-REDEEM: Checking ${marketIds.length} markets ===`);
     
     for (const conditionId of marketIds) {
         try {
@@ -794,7 +793,7 @@ export async function autoRedeemResolvedMarkets(options?: {
                 resolvedCount++;
                 
                 if (options?.dryRun) {
-                    logger.info(`[DRY RUN] Would redeem: ${conditionId}`);
+                    console.log(`[INFO] [DRY RUN] Would redeem: ${conditionId}`);
                     results.push({
                         conditionId,
                         isResolved: true,
@@ -805,7 +804,7 @@ export async function autoRedeemResolvedMarkets(options?: {
                     
                     try {
                         // Redeem the market with retry logic
-                        logger.info(`\nRedeeming resolved market: ${conditionId}`);
+                        console.log(`[INFO] \nRedeeming resolved market: ${conditionId}`);
                         
                         await retryWithBackoff(
                             async () => {
@@ -816,16 +815,16 @@ export async function autoRedeemResolvedMarkets(options?: {
                         );
                         
                         redeemedCount++;
-                        logger.success(`✅ Successfully redeemed ${conditionId}`);
+                        console.log(`[SUCCESS] ✅ Successfully redeemed ${conditionId}`);
                         
                         // Automatically clear holdings after successful redemption
                         // (tokens have been redeemed, so they're no longer in holdings)
                         try {
                             const { clearMarketHoldings } = await import("./holdings");
                             clearMarketHoldings(conditionId);
-                            logger.info(`Cleared holdings record for ${conditionId} from token-holding.json`);
+                            console.log(`[INFO] Cleared holdings record for ${conditionId} from token-holding.json`);
                         } catch (clearError) {
-                            logger.warning(`Failed to clear holdings for ${conditionId}: ${clearError instanceof Error ? clearError.message : String(clearError)}`);
+                            console.log(`[WARNING] Failed to clear holdings for ${conditionId}: ${clearError instanceof Error ? clearError.message : String(clearError)}`);
                             // Don't fail the redemption if clearing holdings fails
                         }
                         
@@ -837,7 +836,7 @@ export async function autoRedeemResolvedMarkets(options?: {
                     } catch (error) {
                         failedCount++;
                         const errorMsg = error instanceof Error ? error.message : String(error);
-                        logger.error(`Failed to redeem ${conditionId} after ${maxRetries} attempts`, error);
+                        console.log(`[ERROR] Failed to redeem ${conditionId} after ${maxRetries} attempts`, error);
                         results.push({
                             conditionId,
                             isResolved: true,
@@ -847,7 +846,7 @@ export async function autoRedeemResolvedMarkets(options?: {
                     }
                 }
             } else {
-                logger.info(`Market ${conditionId} not resolved: ${reason}`);
+                console.log(`[INFO] Market ${conditionId} not resolved: ${reason}`);
                 results.push({
                     conditionId,
                     isResolved: false,
@@ -858,7 +857,7 @@ export async function autoRedeemResolvedMarkets(options?: {
         } catch (error) {
             failedCount++;
             const errorMsg = error instanceof Error ? error.message : String(error);
-            logger.error(`Error processing ${conditionId}`, error);
+            console.log(`[ERROR] Error processing ${conditionId}`, error);
             results.push({
                 conditionId,
                 isResolved: false,
@@ -868,11 +867,11 @@ export async function autoRedeemResolvedMarkets(options?: {
         }
     }
     
-    logger.info(`\n=== AUTO-REDEEM SUMMARY ===`);
-    logger.info(`Total markets: ${marketIds.length}`);
-    logger.info(`Resolved: ${resolvedCount}`);
-    logger.info(`Redeemed: ${redeemedCount}`);
-    logger.info(`Failed: ${failedCount}`);
+    console.log(`[INFO] \n=== AUTO-REDEEM SUMMARY ===`);
+    console.log(`[INFO] Total markets: ${marketIds.length}`);
+    console.log(`[INFO] Resolved: ${resolvedCount}`);
+    console.log(`[INFO] Redeemed: ${redeemedCount}`);
+    console.log(`[INFO] Failed: ${failedCount}`);
     
     return {
         total: marketIds.length,
@@ -944,9 +943,9 @@ export async function getMarketsWithUserPositions(
     const wallet = new Wallet(privateKey, provider);
     const walletAddress = options?.walletAddress || await wallet.getAddress();
     
-    logger.info(`\n=== FINDING YOUR CURRENT/ACTIVE POSITIONS ===`);
-    logger.info(`Wallet: ${walletAddress}`);
-    logger.info(`Using /positions endpoint (returns tokens you currently hold)`);
+    console.log(`[INFO] \n=== FINDING YOUR CURRENT/ACTIVE POSITIONS ===`);
+    console.log(`[INFO] Wallet: ${walletAddress}`);
+    console.log(`[INFO] Using /positions endpoint (returns tokens you currently hold)`);
     
     const marketsWithPositions: Array<{ conditionId: string; position: CurrentPosition; balances: Map<number, BigNumber> }> = [];
     
@@ -989,7 +988,7 @@ export async function getMarketsWithUserPositions(
                 }
                 
                 allPositions = [...allPositions, ...positions];
-                logger.info(`Fetched ${allPositions.length} current position(s)...`);
+                console.log(`[INFO] Fetched ${allPositions.length} current position(s)...`);
                 
                 // If we got fewer results than the limit, we've reached the end
                 if (positions.length < limit) {
@@ -998,12 +997,12 @@ export async function getMarketsWithUserPositions(
                 
                 offset += limit;
             } catch (error) {
-                logger.error("Error fetching positions", error);
+                console.log(`[ERROR] Error fetching positions`, error);
                 break;
             }
         }
         
-        logger.info(`\n✅ Found ${allPositions.length} current position(s) from API`);
+        console.log(`[INFO] \n✅ Found ${allPositions.length} current position(s) from API`);
         
         // Group positions by conditionId and verify on-chain balances
         const positionsByMarket = new Map<string, CurrentPosition[]>();
@@ -1016,8 +1015,8 @@ export async function getMarketsWithUserPositions(
             }
         }
         
-        logger.info(`Found ${positionsByMarket.size} unique market(s) with current positions`);
-        logger.info(`\nVerifying on-chain balances...`);
+        console.log(`[INFO] Found ${positionsByMarket.size} unique market(s) with current positions`);
+        console.log(`[INFO] \nVerifying on-chain balances...`);
         
         // For each market, verify on-chain balances
         for (const [conditionId, positions] of positionsByMarket.entries()) {
@@ -1035,12 +1034,12 @@ export async function getMarketsWithUserPositions(
                     });
                     
                     if (marketsWithPositions.length % 10 === 0) {
-                        logger.info(`Verified ${marketsWithPositions.length} market(s) with active positions...`);
+                        console.log(`[INFO] Verified ${marketsWithPositions.length} market(s) with active positions...`);
                     }
                 } else {
                     // API says we have positions, but on-chain check shows 0
                     // This shouldn't happen, but log it
-                    logger.warning(`API shows positions for ${conditionId}, but on-chain balance is 0`);
+                    console.log(`[WARNING] API shows positions for ${conditionId}, but on-chain balance is 0`);
                 }
             } catch (error) {
                 // Skip if error checking balances
@@ -1048,16 +1047,16 @@ export async function getMarketsWithUserPositions(
             }
         }
         
-        logger.info(`\n✅ Found ${marketsWithPositions.length} market(s) where you have ACTIVE positions`);
+        console.log(`[INFO] \n✅ Found ${marketsWithPositions.length} market(s) where you have ACTIVE positions`);
         
         // Show redeemable positions if any
         const redeemableCount = allPositions.filter(p => p.redeemable).length;
         if (redeemableCount > 0) {
-            logger.info(`📋 ${redeemableCount} position(s) are marked as redeemable by API`);
+            console.log(`[INFO] 📋 ${redeemableCount} position(s) are marked as redeemable by API`);
         }
         
     } catch (error) {
-        logger.error("Failed to find markets with active positions", error);
+        console.log(`[ERROR] Failed to find markets with active positions`, error);
         throw error;
     }
     
@@ -1130,10 +1129,10 @@ export async function redeemAllWinningMarketsFromAPI(options?: {
     
     const maxMarkets = options?.maxMarkets || 1000;
     
-    logger.info(`\n=== FETCHING YOUR POSITIONS FROM POLYMARKET API ===`);
-    logger.info(`Wallet: ${walletAddress}`);
-    logger.info(`Max markets to check: ${maxMarkets}`);
-    logger.info(`\nStep 1: Finding markets where you have positions...`);
+    console.log(`[INFO] \n=== FETCHING YOUR POSITIONS FROM POLYMARKET API ===`);
+    console.log(`[INFO] Wallet: ${walletAddress}`);
+    console.log(`[INFO] Max markets to check: ${maxMarkets}`);
+    console.log(`[INFO] \nStep 1: Finding markets where you have positions...`);
     
     const results: Array<{
         conditionId: string;
@@ -1153,7 +1152,7 @@ export async function redeemAllWinningMarketsFromAPI(options?: {
     let failedCount = 0;
     
     // Step 1: Find all markets where user has positions
-    logger.info(`\nStep 1: Finding markets where you have positions...`);
+    console.log(`[INFO] \nStep 1: Finding markets where you have positions...`);
     const marketsWithUserPositionsData = await getMarketsWithUserPositions({
         maxPositions: maxMarkets,
         walletAddress,
@@ -1163,7 +1162,7 @@ export async function redeemAllWinningMarketsFromAPI(options?: {
     marketsWithPositions = marketsWithUserPositionsData.length;
     totalMarketsChecked = marketsWithPositions; // Approximate, actual count is in the function
     
-    logger.info(`\nStep 2: Checking which markets are resolved and if you won...\n`);
+    console.log(`[INFO] \nStep 2: Checking which markets are resolved and if you won...\n`);
     
     try {
         
@@ -1200,16 +1199,16 @@ export async function redeemAllWinningMarketsFromAPI(options?: {
                     withWinningTokensCount++;
                     
                     const marketTitle = position?.title || conditionId;
-                    logger.info(`\n✅ Found winning market: ${marketTitle}`);
-                    logger.info(`   Condition ID: ${conditionId}`);
-                    logger.info(`   Winning indexSets: ${resolution.winningIndexSets.join(", ")}`);
-                    logger.info(`   Your winning tokens: ${winningHeld.join(", ")}`);
+                    console.log(`[INFO] \n✅ Found winning market: ${marketTitle}`);
+                    console.log(`[INFO]    Condition ID: ${conditionId}`);
+                    console.log(`[INFO]    Winning indexSets: ${resolution.winningIndexSets.join(", ")}`);
+                    console.log(`[INFO]    Your winning tokens: ${winningHeld.join(", ")}`);
                     if (position?.redeemable) {
-                        logger.info(`   API marks this as redeemable: ✅`);
+                        console.log(`[INFO]    API marks this as redeemable: ✅`);
                     }
                     
                     if (options?.dryRun) {
-                        logger.info(`[DRY RUN] Would redeem: ${conditionId}`);
+                        console.log(`[INFO] [DRY RUN] Would redeem: ${conditionId}`);
                         results.push({
                             conditionId,
                             marketTitle,
@@ -1221,7 +1220,7 @@ export async function redeemAllWinningMarketsFromAPI(options?: {
                     } else {
                         try {
                             // Redeem winning positions
-                            logger.info(`Redeeming winning positions...`);
+                            console.log(`[INFO] Redeeming winning positions...`);
                             await redeemPositions({
                                 conditionId,
                                 indexSets: winningHeld,
@@ -1229,15 +1228,15 @@ export async function redeemAllWinningMarketsFromAPI(options?: {
                             });
                             
                             redeemedCount++;
-                            logger.success(`✅ Successfully redeemed ${conditionId}`);
+                            console.log(`[SUCCESS] ✅ Successfully redeemed ${conditionId}`);
                             
                             // Automatically clear holdings after successful redemption
                             try {
                                 const { clearMarketHoldings } = await import("./holdings");
                                 clearMarketHoldings(conditionId);
-                                logger.info(`Cleared holdings record for ${conditionId} from token-holding.json`);
+                                console.log(`[INFO] Cleared holdings record for ${conditionId} from token-holding.json`);
                             } catch (clearError) {
-                                logger.warning(`Failed to clear holdings for ${conditionId}: ${clearError instanceof Error ? clearError.message : String(clearError)}`);
+                                console.log(`[WARNING] Failed to clear holdings for ${conditionId}: ${clearError instanceof Error ? clearError.message : String(clearError)}`);
                                 // Don't fail the redemption if clearing holdings fails
                             }
                             
@@ -1252,7 +1251,7 @@ export async function redeemAllWinningMarketsFromAPI(options?: {
                         } catch (error) {
                             failedCount++;
                             const errorMsg = error instanceof Error ? error.message : String(error);
-                            logger.error(`Failed to redeem ${conditionId}`, error);
+                            console.log(`[ERROR] Failed to redeem ${conditionId}`, error);
                             results.push({
                                 conditionId,
                                 marketTitle,
@@ -1278,7 +1277,7 @@ export async function redeemAllWinningMarketsFromAPI(options?: {
             } catch (error) {
                 failedCount++;
                 const errorMsg = error instanceof Error ? error.message : String(error);
-                logger.error(`Error processing market ${conditionId}`, error);
+                console.log(`[ERROR] Error processing market ${conditionId}`, error);
                 results.push({
                     conditionId,
                     marketTitle: position?.title || conditionId,
@@ -1290,17 +1289,17 @@ export async function redeemAllWinningMarketsFromAPI(options?: {
             }
         }
         
-        logger.info(`\n=== API REDEMPTION SUMMARY ===`);
-        logger.info(`Total markets checked: ${totalMarketsChecked}`);
-        logger.info(`Markets where you have positions: ${marketsWithPositions}`);
-        logger.info(`Resolved markets: ${resolvedCount}`);
-        logger.info(`Markets with winning tokens: ${withWinningTokensCount}`);
+        console.log(`[INFO] \n=== API REDEMPTION SUMMARY ===`);
+        console.log(`[INFO] Total markets checked: ${totalMarketsChecked}`);
+        console.log(`[INFO] Markets where you have positions: ${marketsWithPositions}`);
+        console.log(`[INFO] Resolved markets: ${resolvedCount}`);
+        console.log(`[INFO] Markets with winning tokens: ${withWinningTokensCount}`);
         if (options?.dryRun) {
-            logger.info(`Would redeem: ${withWinningTokensCount} market(s)`);
+            console.log(`[INFO] Would redeem: ${withWinningTokensCount} market(s)`);
         } else {
-            logger.success(`Successfully redeemed: ${redeemedCount} market(s)`);
+            console.log(`[SUCCESS] Successfully redeemed: ${redeemedCount} market(s)`);
             if (failedCount > 0) {
-                logger.warning(`Failed: ${failedCount} market(s)`);
+                console.log(`[WARNING] Failed: ${failedCount} market(s)`);
             }
         }
         
@@ -1314,7 +1313,7 @@ export async function redeemAllWinningMarketsFromAPI(options?: {
             results,
         };
     } catch (error) {
-        logger.error("Failed to fetch and redeem markets from API", error);
+        console.log(`[ERROR] Failed to fetch and redeem markets from API`, error);
         throw error;
     }
 }

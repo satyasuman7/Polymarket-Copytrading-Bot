@@ -1,5 +1,4 @@
 import { ClobClient, AssetType, type OpenOrder } from "@polymarket/clob-client";
-import { logger } from "./logger";
 
 /**
  * Calculate available balance for placing orders
@@ -47,15 +46,11 @@ export async function getAvailableBalance(
 
         const availableBalance = totalBalance - reservedAmount;
 
-        logger.debug(
-            `Balance check: Total=${totalBalance}, Reserved=${reservedAmount}, Available=${availableBalance}`
-        );
+        console.log(`[DEBUG] Balance check: Total=${totalBalance}, Reserved=${reservedAmount}, Available=${availableBalance}`);
 
         return Math.max(0, availableBalance);
     } catch (error) {
-        logger.error(
-            `Failed to get available balance: ${error instanceof Error ? error.message : String(error)}`
-        );
+        console.log(`[ERROR] Failed to get available balance: ${error instanceof Error ? error.message : String(error)}`);
         // Return 0 on error to be safe
         return 0;
     }
@@ -73,15 +68,15 @@ export async function displayWalletBalance(client: ClobClient): Promise<void> {
         const balance = parseFloat(balanceResponse.balance || "0");
         const allowance = parseFloat(balanceResponse.allowance || "0");
 
-        logger.info("═══════════════════════════════════════");
-        logger.info("💰 WALLET BALANCE & ALLOWANCE");
-        logger.info("═══════════════════════════════════════");
-        logger.info(`USDC Balance: ${balance.toFixed(6)}`);
-        logger.info(`USDC Allowance: ${allowance.toFixed(6)}`);
-        logger.info(`Available: ${balance.toFixed(6)} (Balance: ${balance.toFixed(6)}, Allowance: ${allowance.toFixed(6)})`);
-        logger.info("═══════════════════════════════════════");
+        console.log(`[INFO] ═══════════════════════════════════════`);
+        console.log(`[INFO] 💰 WALLET BALANCE & ALLOWANCE`);
+        console.log(`[INFO] ═══════════════════════════════════════`);
+        console.log(`[INFO] USDC Balance: ${balance.toFixed(6)}`);
+        console.log(`[INFO] USDC Allowance: ${allowance.toFixed(6)}`);
+        console.log(`[INFO] Available: ${balance.toFixed(6)} (Balance: ${balance.toFixed(6)}, Allowance: ${allowance.toFixed(6)})`);
+        console.log(`[INFO] ═══════════════════════════════════════`);
     } catch (error) {
-        logger.error(`Failed to get wallet balance: ${error instanceof Error ? error.message : String(error)}`);
+        console.log(`[ERROR] Failed to get wallet balance: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
 
@@ -104,19 +99,19 @@ export async function validateBuyOrderBalance(
         const valid = available >= requiredAmount;
 
         if (!valid) {
-            logger.warning("═══════════════════════════════════════");
-            logger.warning("⚠️  INSUFFICIENT BALANCE/ALLOWANCE");
-            logger.warning("═══════════════════════════════════════");
-            logger.warning(`Required: ${requiredAmount.toFixed(6)} USDC`);
-            logger.warning(`Available: ${available.toFixed(6)} USDC`);
-            logger.warning(`Balance: ${balance.toFixed(6)} USDC`);
-            logger.warning(`Allowance: ${allowance.toFixed(6)} USDC`);
-            logger.warning("═══════════════════════════════════════");
+            console.log(`[WARNING] ═══════════════════════════════════════`);
+            console.log(`[WARNING] ⚠️  INSUFFICIENT BALANCE/ALLOWANCE`);
+            console.log(`[WARNING] ═══════════════════════════════════════`);
+            console.log(`[WARNING] Required: ${requiredAmount.toFixed(6)} USDC`);
+            console.log(`[WARNING] Available: ${available.toFixed(6)} USDC`);
+            console.log(`[WARNING] Balance: ${balance.toFixed(6)} USDC`);
+            console.log(`[WARNING] Allowance: ${allowance.toFixed(6)} USDC`);
+            console.log(`[WARNING] ═══════════════════════════════════════`);
         }
 
         return { valid, available, required: requiredAmount, balance, allowance };
     } catch (error) {
-        logger.error(`Failed to validate balance: ${error instanceof Error ? error.message : String(error)}`);
+        console.log(`[ERROR] Failed to validate balance: ${error instanceof Error ? error.message : String(error)}`);
         const available = await getAvailableBalance(client, AssetType.COLLATERAL);
         return { valid: false, available, required: requiredAmount };
     }
@@ -134,9 +129,7 @@ export async function validateSellOrderBalance(
     const valid = available >= requiredAmount;
 
     if (!valid) {
-        logger.warning(
-            `Insufficient token balance: Token=${tokenId.substring(0, 20)}..., Required=${requiredAmount}, Available=${available}`
-        );
+        console.log(`[WARNING] Insufficient token balance: Token=${tokenId.substring(0, 20)}..., Required=${requiredAmount}, Available=${available}`);
     }
 
     return { valid, available, required: requiredAmount };
