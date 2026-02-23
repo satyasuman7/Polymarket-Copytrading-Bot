@@ -1,6 +1,5 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve } from "path";
-import { logger } from "./logger";
 
 /**
  * Holdings structure: market_id (conditionId) -> { token_id: amount }
@@ -25,7 +24,7 @@ export function loadHoldings(): TokenHoldings {
         const content = readFileSync(HOLDINGS_FILE, "utf-8");
         return JSON.parse(content) as TokenHoldings;
     } catch (error) {
-        logger.error("Failed to load holdings", error);
+        console.log("[ERROR] Failed to load holdings", error);
         return {};
     }
 }
@@ -43,7 +42,7 @@ export function saveHoldings(holdings: TokenHoldings): void {
         }
         writeFileSync(HOLDINGS_FILE, JSON.stringify(holdings, null, 2));
     } catch (error) {
-        logger.error("Failed to save holdings", error);
+        console.log("[ERROR] Failed to save holdings", error);
     }
 }
 
@@ -64,7 +63,7 @@ export function addHoldings(marketId: string, tokenId: string, amount: number): 
     holdings[marketId][tokenId] += amount;
     
     saveHoldings(holdings);
-    logger.info(`Added ${amount} tokens to holdings: ${marketId} -> ${tokenId}`);
+    console.log(`[INFO] Added ${amount} tokens to holdings: ${marketId} -> ${tokenId}`);
 }
 
 /**
@@ -82,7 +81,7 @@ export function removeHoldings(marketId: string, tokenId: string, amount: number
     const holdings = loadHoldings();
     
     if (!holdings[marketId] || !holdings[marketId][tokenId]) {
-        logger.warning(`No holdings found for ${marketId} -> ${tokenId}`);
+        console.log(`[WARNING] No holdings found for ${marketId} -> ${tokenId}`);
         return;
     }
     
@@ -100,7 +99,7 @@ export function removeHoldings(marketId: string, tokenId: string, amount: number
     }
     
     saveHoldings(holdings);
-    logger.info(`Removed ${amount} tokens from holdings: ${marketId} -> ${tokenId} (remaining: ${newAmount})`);
+    console.log(`[INFO] Removed ${amount} tokens from holdings: ${marketId} -> ${tokenId} (remaining: ${newAmount})`);
 }
 
 /**
@@ -126,9 +125,9 @@ export function clearMarketHoldings(marketId: string): void {
     if (holdings[marketId]) {
         delete holdings[marketId];
         saveHoldings(holdings);
-        logger.info(`Cleared holdings for market: ${marketId}`);
+        console.log(`[INFO] Cleared holdings for market: ${marketId}`);
     } else {
-        logger.warning(`No holdings found for market: ${marketId}`);
+        console.log(`[WARNING] No holdings found for market: ${marketId}`);
     }
 }
 
@@ -137,6 +136,6 @@ export function clearMarketHoldings(marketId: string): void {
  */
 export function clearHoldings(): void {
     saveHoldings({});
-    logger.info("All holdings cleared");
+    console.log("[INFO] All holdings cleared");
 }
 
