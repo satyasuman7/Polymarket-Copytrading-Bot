@@ -24,7 +24,7 @@ import {
     getUserTokenBalances,
     redeemAllWinningMarketsFromAPI 
 } from "./utils/redeem";
-import { logger } from "./utils/logger";
+
 import { getAllHoldings } from "./utils/holdings";
 
 dotenvConfig({ path: resolve(process.cwd(), ".env") });
@@ -36,18 +36,18 @@ async function main() {
     const checkIndex = args.indexOf("--check");
     if (checkIndex !== -1 && args[checkIndex + 1]) {
         const conditionId = args[checkIndex + 1];
-        logger.info(`\n=== Checking Market Status ===`);
-        logger.info(`Condition ID: ${conditionId}`);
+        console.log(`[INFO] \n=== Checking Market Status ===`);
+        console.log(`[INFO] Condition ID: ${conditionId}`);
         
         const { isResolved, market, reason, winningIndexSets } = await isMarketResolved(conditionId);
         
         if (isResolved) {
-            logger.success(`✅ Market is RESOLVED and ready for redemption!`);
-            logger.info(`Outcome: ${market?.outcome || "N/A"}`);
+            console.log(`[SUCCESS] ✅ Market is RESOLVED and ready for redemption!`);
+            console.log(`[INFO] Outcome: ${market?.outcome || "N/A"}`);
             if (winningIndexSets && winningIndexSets.length > 0) {
-                logger.info(`Winning outcomes: ${winningIndexSets.join(", ")}`);
+                console.log(`[INFO] Winning outcomes: ${winningIndexSets.join(", ")}`);
             }
-            logger.info(`Reason: ${reason}`);
+            console.log(`[INFO] Reason: ${reason}`);
             
             // Check user's holdings
             try {
@@ -58,20 +58,20 @@ async function main() {
                     const balances = await getUserTokenBalances(conditionId, await wallet.getAddress());
                     
                     if (balances.size > 0) {
-                        logger.info("\nYour token holdings:");
+                        console.log(`[INFO] \nYour token holdings:`);
                         for (const [indexSet, balance] of balances.entries()) {
                             const isWinner = winningIndexSets?.includes(indexSet);
                             const status = isWinner ? "✅ WINNER" : "❌ Loser";
-                            logger.info(`  IndexSet ${indexSet}: ${balance.toString()} tokens ${status}`);
+                            console.log(`[INFO]   IndexSet ${indexSet}: ${balance.toString()} tokens ${status}`);
                         }
                         
                         const winningHeld = Array.from(balances.keys()).filter(idx => 
                             winningIndexSets?.includes(idx)
                         );
                         if (winningHeld.length > 0) {
-                            logger.success(`\nYou hold winning tokens! (IndexSets: ${winningHeld.join(", ")})`);
+                            console.log(`[SUCCESS] \nYou hold winning tokens! (IndexSets: ${winningHeld.join(", ")})`);
                         } else {
-                            logger.warning("\n⚠️  You don't hold any winning tokens for this market.");
+                            console.log(`[WARNING] \n⚠️  You don't hold any winning tokens for this market.`);
                         }
                     }
                 }
@@ -82,22 +82,22 @@ async function main() {
             // Ask if user wants to redeem
             const shouldRedeem = args.includes("--redeem");
             if (shouldRedeem) {
-                logger.info("\nRedeeming market...");
+                console.log(`[INFO] \nRedeeming market...`);
                 try {
                     const receipt = await redeemMarket(conditionId);
-                    logger.success(`✅ Successfully redeemed!`);
-                    logger.info(`Transaction: ${receipt.transactionHash}`);
+                    console.log(`[SUCCESS] ✅ Successfully redeemed!`);
+                    console.log(`[INFO] Transaction: ${receipt.transactionHash}`);
                 } catch (error) {
-                    logger.error(`Failed to redeem: ${error instanceof Error ? error.message : String(error)}`);
+                    console.log(`[ERROR] Failed to redeem: ${error instanceof Error ? error.message : String(error)}`);
                     process.exit(1);
                 }
             } else {
-                logger.info("\nTo redeem this market, run:");
-                logger.info(`  bun src/auto-redeem.ts --check ${conditionId} --redeem`);
+                console.log(`[INFO] \nTo redeem this market, run:`);
+                console.log(`[INFO]   bun src/auto-redeem.ts --check ${conditionId} --redeem`);
             }
         } else {
-            logger.warning(`❌ Market is NOT resolved`);
-            logger.info(`Reason: ${reason}`);
+            console.log(`[WARNING] ❌ Market is NOT resolved`);
+            console.log(`[INFO] Reason: ${reason}`);
         }
         return;
     }
@@ -108,13 +108,13 @@ async function main() {
     const useAPI = args.includes("--api");
     
     if (dryRun) {
-        logger.info("\n=== DRY RUN MODE: No actual redemptions will be performed ===\n");
+        console.log(`[INFO] \n=== DRY RUN MODE: No actual redemptions will be performed ===\n`);
     }
     
     // Use API method if --api flag is set
     if (useAPI) {
-        logger.info("\n=== USING POLYMARKET API METHOD ===");
-        logger.info("Fetching all markets from API and checking for winning positions...\n");
+        console.log(`[INFO] \n=== USING POLYMARKET API METHOD ===`);
+        console.log(`[INFO] Fetching all markets from API and checking for winning positions...\n`);
         
         const maxMarkets = args.includes("--max") 
             ? parseInt(args[args.indexOf("--max") + 1]) || 1000
@@ -126,63 +126,63 @@ async function main() {
         });
         
         // Print summary
-        logger.info("\n" + "=".repeat(50));
-        logger.info("API REDEMPTION SUMMARY");
-        logger.info("=".repeat(50));
-        logger.info(`Total markets checked: ${result.totalMarketsChecked}`);
-        logger.info(`Markets where you have positions: ${result.marketsWithPositions}`);
-        logger.info(`Resolved markets: ${result.resolved}`);
-        logger.info(`Markets with winning tokens: ${result.withWinningTokens}`);
+        console.log(`[INFO] \n${"=".repeat(50)}`);
+        console.log(`[INFO] API REDEMPTION SUMMARY`);
+        console.log(`[INFO] ${"=".repeat(50)}`);
+        console.log(`[INFO] Total markets checked: ${result.totalMarketsChecked}`);
+        console.log(`[INFO] Markets where you have positions: ${result.marketsWithPositions}`);
+        console.log(`[INFO] Resolved markets: ${result.resolved}`);
+        console.log(`[INFO] Markets with winning tokens: ${result.withWinningTokens}`);
         
         if (dryRun) {
-            logger.info(`Would redeem: ${result.withWinningTokens} market(s)`);
+            console.log(`[INFO] Would redeem: ${result.withWinningTokens} market(s)`);
         } else {
-            logger.success(`Successfully redeemed: ${result.redeemed} market(s)`);
+            console.log(`[SUCCESS] Successfully redeemed: ${result.redeemed} market(s)`);
             if (result.failed > 0) {
-                logger.warning(`Failed: ${result.failed} market(s)`);
+                console.log(`[WARNING] Failed: ${result.failed} market(s)`);
             }
         }
         
         // Show detailed results for markets with winning tokens
         if (result.withWinningTokens > 0) {
-            logger.info("\nDetailed Results (Markets with Winning Tokens):");
+            console.log(`[INFO] \nDetailed Results (Markets with Winning Tokens):`);
             for (const res of result.results) {
                 if (res.hasWinningTokens) {
                     const title = res.marketTitle ? `"${res.marketTitle.substring(0, 50)}..."` : res.conditionId.substring(0, 20) + "...";
                     if (res.redeemed) {
-                        logger.success(`  ✅ ${title} - Redeemed`);
+                        console.log(`[SUCCESS]   ✅ ${title} - Redeemed`);
                     } else {
-                        logger.error(`  ❌ ${title} - Failed: ${res.error || "Unknown error"}`);
+                        console.log(`[ERROR]   ❌ ${title} - Failed: ${res.error || "Unknown error"}`);
                     }
                 }
             }
         }
         
         if (result.withWinningTokens === 0 && !dryRun) {
-            logger.info("\nNo resolved markets with winning tokens found.");
+            console.log(`[INFO] \nNo resolved markets with winning tokens found.`);
         }
         
         return;
     }
     
     // Default: Use holdings file method
-    logger.info("\n=== USING HOLDINGS FILE METHOD ===");
+    console.log(`[INFO] \n=== USING HOLDINGS FILE METHOD ===`);
     
     // Get all holdings
     const holdings = getAllHoldings();
     const marketCount = Object.keys(holdings).length;
     
     if (marketCount === 0) {
-        logger.warning("No holdings found in token-holding.json. Nothing to redeem.");
-        logger.info("\nOptions:");
-        logger.info("  1. Holdings are tracked automatically when you place orders");
-        logger.info("  2. Use --api flag to fetch all markets from Polymarket API instead");
-        logger.info("     Example: bun src/auto-redeem.ts --api");
+        console.log(`[WARNING] No holdings found in token-holding.json. Nothing to redeem.`);
+        console.log(`[INFO] \nOptions:`);
+        console.log(`[INFO]   1. Holdings are tracked automatically when you place orders`);
+        console.log(`[INFO]   2. Use --api flag to fetch all markets from Polymarket API instead`);
+        console.log(`[INFO]      Example: bun src/auto-redeem.ts --api`);
         process.exit(0);
     }
     
-    logger.info(`\nFound ${marketCount} market(s) in holdings`);
-    logger.info("Checking which markets are resolved...\n");
+    console.log(`[INFO] \nFound ${marketCount} market(s) in holdings`);
+    console.log(`[INFO] Checking which markets are resolved...\n`);
     
     // Run auto-redemption
     const result = await autoRedeemResolvedMarkets({
@@ -191,42 +191,42 @@ async function main() {
     });
     
     // Print summary
-    logger.info("\n" + "=".repeat(50));
-    logger.info("REDEMPTION SUMMARY");
-    logger.info("=".repeat(50));
-    logger.info(`Total markets checked: ${result.total}`);
-    logger.info(`Resolved markets: ${result.resolved}`);
+    console.log(`[INFO] \n${"=".repeat(50)}`);
+    console.log(`[INFO] REDEMPTION SUMMARY`);
+    console.log(`[INFO] ${"=".repeat(50)}`);
+    console.log(`[INFO] Total markets checked: ${result.total}`);
+    console.log(`[INFO] Resolved markets: ${result.resolved}`);
     
     if (dryRun) {
-        logger.info(`Would redeem: ${result.resolved} market(s)`);
+        console.log(`[INFO] Would redeem: ${result.resolved} market(s)`);
     } else {
-        logger.success(`Successfully redeemed: ${result.redeemed} market(s)`);
+        console.log(`[SUCCESS] Successfully redeemed: ${result.redeemed} market(s)`);
         if (result.failed > 0) {
-            logger.warning(`Failed: ${result.failed} market(s)`);
+            console.log(`[WARNING] Failed: ${result.failed} market(s)`);
         }
     }
     
     // Show detailed results
     if (result.resolved > 0 || result.failed > 0) {
-        logger.info("\nDetailed Results:");
+        console.log(`[INFO] \nDetailed Results:`);
         for (const res of result.results) {
             if (res.isResolved) {
                 if (res.redeemed) {
-                    logger.success(`  ✅ ${res.conditionId.substring(0, 20)}... - Redeemed`);
+                    console.log(`[SUCCESS]   ✅ ${res.conditionId.substring(0, 20)}... - Redeemed`);
                 } else {
-                    logger.error(`  ❌ ${res.conditionId.substring(0, 20)}... - Failed: ${res.error || "Unknown error"}`);
+                    console.log(`[ERROR]   ❌ ${res.conditionId.substring(0, 20)}... - Failed: ${res.error || "Unknown error"}`);
                 }
             }
         }
     }
     
     if (result.resolved === 0 && !dryRun) {
-        logger.info("\nNo resolved markets found. All markets are either still active or not yet reported.");
+        console.log(`[INFO] \nNo resolved markets found. All markets are either still active or not yet reported.`);
     }
 }
 
 main().catch((error) => {
-    logger.error("Fatal error", error);
+    console.log(`[ERROR] Fatal error`, error);
     process.exit(1);
 });
 

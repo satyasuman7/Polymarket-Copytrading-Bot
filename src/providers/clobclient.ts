@@ -57,36 +57,6 @@ export async function getClobClient(): Promise<ClobClient> {
     return cachedClient;
 }
 
-export const healthCheckClob = async (): Promise<void> => {
-    // Load credentials
-    const credentialPath = resolve(process.cwd(), "src/data/credential.json");
-    if (!existsSync(credentialPath)) {
-        throw new Error("Credential file not found. Run createCredential() first.");
-    }
-    const creds: ApiKeyCreds = JSON.parse(readFileSync(credentialPath, "utf-8"));
-
-    const chainId = config.chain.chainId;
-
-    // Convert base64url secret to standard base64 for clob-client compatibility
-    const secretBase64 = creds.secret.replace(/-/g, '+').replace(/_/g, '/');
-    // Create wallet from private key
-    const privateKey = process.env.PRIVATE_KEY;
-    if (!privateKey) {
-        throw new Error("PRIVATE_KEY not found");
-    }
-    const wallet = new Wallet(privateKey);
-
-    // Create API key credentials
-    const apiKeyCreds: ApiKeyCreds = {
-        key: creds.key,
-        secret: secretBase64,
-        passphrase: creds.passphrase,
-    };
-
-    const healthStatus = new ClobClient(config.health.apiUrl, chainId, wallet, apiKeyCreds);
-    return healthStatus.json();
-}
-
 /**
  * Clear cached ClobClient (useful for testing or re-initialization)
  */

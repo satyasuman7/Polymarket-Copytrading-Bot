@@ -3,7 +3,6 @@ import type { UserMarketOrder, CreateOrderOptions } from "@polymarket/clob-clien
 import type { TradePayload } from "../utils/types";
 import type { CopyTradeOptions, CopyTradeResult } from "./types";
 import { tradeToMarketOrder, getDefaultOrderOptions } from "./helpers";
-import { logger } from "../utils/logger";
 import { addHoldings, getHoldings, removeHoldings } from "../utils/holdings";
 import { approveTokensAfterBuy, updateClobBalanceAllowance } from "../security/allowance";
 import { validateBuyOrderBalance, validateSellOrderBalance, displayWalletBalance } from "../utils/balance";
@@ -33,8 +32,8 @@ export class TradeOrderBuilder {
                 const holdingsAmount = getHoldings(marketId, tokenId);
                 
                 if (holdingsAmount <= 0) {
-                    logger.warning(
-                        `No holdings found for token ${tokenId} in market ${marketId}. ` +
+                    console.log(
+                        `[WARNING] No holdings found for token ${tokenId} in market ${marketId}. ` +
                         `Skipping SELL order.`
                     );
                     return {
@@ -52,8 +51,8 @@ export class TradeOrderBuilder {
                 );
 
                 if (!balanceCheck.valid) {
-                    logger.warning(
-                        `Insufficient balance for SELL order. ` +
+                    console.log(
+                        `[WARNING] Insufficient balance for SELL order. ` +
                         `Required: ${balanceCheck.required}, Available: ${balanceCheck.available}. ` +
                         `Using available balance instead.`
                     );
@@ -69,7 +68,7 @@ export class TradeOrderBuilder {
                 // Use the minimum of holdings and available balance
                 const sellAmount = Math.min(holdingsAmount, balanceCheck.available);
 
-                // logger.info(
+                // console.log("[INFO] 
                 //     `Selling tokens: Holdings=${holdingsAmount}, Available=${balanceCheck.available}, Selling=${sellAmount}`
                 // );
 
@@ -83,7 +82,7 @@ export class TradeOrderBuilder {
 
                 const orderOptions: Partial<CreateOrderOptions> = getDefaultOrderOptions(tickSize, negRisk);
 
-                logger.info(`Placing SELL market order: ${sellAmount} shares (type: ${orderType})`);
+                console.log(`[INFO] Placing SELL market order: ${sellAmount} shares (type: ${orderType})`);
                 
                 const response = await this.client.createAndPostMarketOrder(
                     marketOrder,
@@ -93,7 +92,7 @@ export class TradeOrderBuilder {
 
                 // Check if order was successful
                 if (!response || (response.status && response.status !== "FILLED" && response.status !== "PARTIALLY_FILLED")) {
-                    logger.warning(`Order may not have been fully successful. Status: ${response?.status || "unknown"}`);
+                    console.log(`[WARNING] Order may not have been fully successful. Status: ${response?.status || "unknown"}`);
                 }
 
                 // For SELL orders, makingAmount is tokens sold
@@ -105,13 +104,13 @@ export class TradeOrderBuilder {
                 // Remove from holdings after successful sell
                 if (tokensSold > 0) {
                     removeHoldings(marketId, tokenId, tokensSold);
-                    logger.info(`✅ Removed ${tokensSold} tokens from holdings: ${marketId} -> ${tokenId}`);
+                    console.log(`[INFO] ✅ Removed ${tokensSold} tokens from holdings: ${marketId} -> ${tokenId}`);
                 } else {
-                    logger.warning("No tokens were sold - not removing from holdings");
+                    console.log(`[WARNING] No tokens were sold - not removing from holdings`);
                 }
 
-                logger.success(
-                    `SELL order executed! ` +
+                console.log(
+                    `[SUCCESS] SELL order executed! ` +
                     `OrderID: ${response.orderID || "N/A"}, ` +
                     `Tokens sold: ${tokensSold}, ` +
                     `Status: ${response.status || "N/A"}`
@@ -126,8 +125,8 @@ export class TradeOrderBuilder {
             }
 
             // For BUY orders, proceed normally
-            logger.info(
-                `Building order to copy trade: ${trade.side} ${trade.size} @ ${trade.price} ` +
+            console.log(
+                `[INFO] Building order to copy trade: ${trade.side} ${trade.size} @ ${trade.price} ` +
                 `for token ${tokenId.substring(0, 20)}...`
             );
 
@@ -138,7 +137,7 @@ export class TradeOrderBuilder {
             try {
                 await this.client.updateBalanceAllowance({ asset_type: AssetType.COLLATERAL });
             } catch (error) {
-                logger.warning(`Failed to update balance allowance: ${error instanceof Error ? error.message : String(error)}`);
+                console.log(`[WARNING] Failed to update balance allowance: ${error instanceof Error ? error.message : String(error)}`);
             }
             
             // Display current wallet balance
@@ -151,8 +150,8 @@ export class TradeOrderBuilder {
             );
 
             if (!balanceCheck.valid) {
-                logger.warning(
-                    `Insufficient USDC balance for BUY order. ` +
+                console.log(
+                    `[WARNING] Insufficient USDC balance for BUY order. ` +
                     `Required: ${balanceCheck.required}, Available: ${balanceCheck.available}. ` +
                     `Adjusting order amount to available balance.`
                 );
@@ -166,14 +165,14 @@ export class TradeOrderBuilder {
 
                 // Adjust order amount to available balance
                 marketOrder.amount = balanceCheck.available;
-                logger.info(`Adjusted order amount to available balance: ${marketOrder.amount}`);
+                console.log(`[INFO] Adjusted order amount to available balance: ${marketOrder.amount}`);
             }
             
             // Get order options
             const orderOptions: Partial<CreateOrderOptions> = getDefaultOrderOptions(tickSize, negRisk);
 
             // Place the market order
-            logger.info(`Placing ${marketOrder.side} market order: ${marketOrder.amount} (type: ${orderType})`);
+            console.log(`[INFO] Placing ${marketOrder.side} market order: ${marketOrder.amount} (type: ${orderType})`);
             
             const response = await this.client.createAndPostMarketOrder(
                 marketOrder,
@@ -183,7 +182,7 @@ export class TradeOrderBuilder {
 
             // Check if order was successful
             if (!response || (response.status && response.status !== "FILLED" && response.status !== "PARTIALLY_FILLED")) {
-                logger.warning(`Order may not have been fully successful. Status: ${response?.status || "unknown"}`);
+                console.log(`[WARNING] Order may not have been fully successful. Status: ${response?.status || "unknown"}`);
             }
 
             // Get the actual filled amount from response
@@ -195,16 +194,16 @@ export class TradeOrderBuilder {
             // Add to holdings after successful buy (only if we received tokens)
             if (tokensReceived > 0) {
                 addHoldings(marketId, tokenId, tokensReceived);
-                logger.info(`✅ Added ${tokensReceived} tokens to holdings: ${marketId} -> ${tokenId}`);
+                console.log(`[INFO] ✅ Added ${tokensReceived} tokens to holdings: ${marketId} -> ${tokenId}`);
             } else {
                 // Fallback: estimate from order amount if response doesn't have takingAmount
                 // For BUY: amount is USDC, so tokens = USDC / price
                 const estimatedTokens = marketOrder.amount / (trade.price || 1);
                 if (estimatedTokens > 0) {
                     addHoldings(marketId, tokenId, estimatedTokens);
-                    logger.warning(`Using estimated token amount: ${estimatedTokens} (actual amount not in response)`);
+                    console.log(`[WARNING] Using estimated token amount: ${estimatedTokens} (actual amount not in response)`);
                 } else {
-                    logger.warning("No tokens received and cannot estimate - not adding to holdings");
+                    console.log(`[WARNING] No tokens received and cannot estimate - not adding to holdings`);
                 }
             }
 
@@ -212,11 +211,11 @@ export class TradeOrderBuilder {
             try {
                 await approveTokensAfterBuy();
             } catch (error) {
-                logger.warning(`Failed to approve tokens after buy: ${error instanceof Error ? error.message : String(error)}`);
+                console.log(`[WARNING] Failed to approve tokens after buy: ${error instanceof Error ? error.message : String(error)}`);
             }
 
-            logger.success(
-                `BUY order executed! ` +
+            console.log(
+                `[SUCCESS] BUY order executed! ` +
                 `OrderID: ${response.orderID || "N/A"}, ` +
                 `Tokens received: ${tokensReceived || "estimated"}, ` +
                 `Status: ${response.status || "N/A"}`
@@ -233,24 +232,24 @@ export class TradeOrderBuilder {
             
             // If it's a balance/allowance error, show current balance
             if (errorMessage.includes("not enough balance") || errorMessage.includes("allowance")) {
-                logger.error("═══════════════════════════════════════");
-                logger.error("❌ ORDER FAILED: Balance/Allowance Error");
-                logger.error("═══════════════════════════════════════");
+                console.log("═══════════════════════════════════════");
+                console.log("[ERROR] ❌ ORDER FAILED: Balance/Allowance Error");
+                console.log("═══════════════════════════════════════");
                 
                 // Try to display current balance
                 try {
                     await displayWalletBalance(this.client);
                     // Try updating allowance and retry
-                    logger.info("Attempting to update balance allowance...");
+                    console.log("[INFO] Attempting to update balance allowance...");
                     await this.client.updateBalanceAllowance({ asset_type: AssetType.COLLATERAL });
                 } catch (balanceError) {
-                    logger.error(`Failed to get balance: ${balanceError instanceof Error ? balanceError.message : String(balanceError)}`);
+                    console.log(`[ERROR] Failed to get balance: ${balanceError instanceof Error ? balanceError.message : String(balanceError)}`);
                 }
                 
-                logger.error("═══════════════════════════════════════");
+                console.log("═══════════════════════════════════════");
             }
             
-            logger.error(`Failed to copy trade: ${errorMessage}`);
+            console.log(`[ERROR] Failed to copy trade: ${errorMessage}`);
             
             return {
                 success: false,

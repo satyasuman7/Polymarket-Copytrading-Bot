@@ -29,7 +29,9 @@ function markTradeProcessed(tradeHash: string): void {
     // Keep only last 10000 trades in memory to prevent memory leak
     if (processedTrades.size > 10000) {
         const first = processedTrades.values().next().value;
-        processedTrades.delete(first);
+        if (first !== undefined) {
+            processedTrades.delete(first);
+        }
     }
 }
 
@@ -225,31 +227,10 @@ async function main() {
             console.log("Subscribed to activity:trades");
         };
 
-        // FIXED: Add error handler for reconnection
-        const onError = (error: Error): void => {
-            console.log("WebSocket error", error);
-            if (reconnectAttempts < maxReconnectAttempts) {
-                reconnectAttempts++;
-                console.log(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts}) in ${reconnectDelay/1000}s...`);
-                setTimeout(() => {
-                    try {
-                        const newClient = connectWebSocket();
-                        newClient.connect();
-                    } catch (err) {
-                        console.log("Failed to reconnect", err);
-                    }
-                }, reconnectDelay);
-            } else {
-                console.log(`Max reconnection attempts (${maxReconnectAttempts}) reached. Exiting.`);
-                process.exit(1);
-            }
-        };
-
         // Create and connect client with callbacks
         const client = getRealTimeDataClient({
             onMessage,
             onConnect,
-            onError,
         });
 
         return client;
