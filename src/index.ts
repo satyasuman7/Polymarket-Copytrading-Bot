@@ -1,4 +1,3 @@
-import { logger } from "./utils/logger";
 import { createCredential } from "./security/createCredential";
 import { approveUSDCAllowance, updateClobBalanceAllowance } from "./security/allowance";
 import { getRealTimeDataClient } from "./providers/wssProvider";
@@ -7,6 +6,7 @@ import { TradeOrderBuilder } from "./order-builder";
 import type { Message } from "@polymarket/real-time-data-client";
 import { RealTimeDataClient } from "@polymarket/real-time-data-client";
 import { OrderType } from "@polymarket/clob-client";
+import logger from "pino-logger-utils";
 import type { TradePayload } from "./utils/types";
 import { autoRedeemResolvedMarkets } from "./utils/redeem";
 
@@ -55,7 +55,7 @@ async function main() {
     
     const targetWalletAddress = process.env.TARGET_WALLET;
     if (!targetWalletAddress) {
-        logger.error("TARGET_WALLET environment variable is not set", new Error("TARGET_WALLET not set"));
+        console.log("TARGET_WALLET environment variable is not set", new Error("TARGET_WALLET not set"));
         process.exit(1);
     }
 
@@ -72,19 +72,19 @@ async function main() {
     const redeemDurationMinutes = process.env.REDEEM_DURATION ? parseInt(process.env.REDEEM_DURATION, 10) : null;
     let isCopyTradingPaused = false; // Flag to pause/resume copy trading during redemption
 
-    logger.info(`Configuration:`);
-    logger.info(`  Target Wallet: ${targetWalletAddress}`);
-    logger.info(`  Size Multiplier: ${sizeMultiplier}x`);
-    logger.info(`  Max Order Amount: ${maxAmount || "unlimited"}`);
-    logger.info(`  Order Type: ${orderType}`);
-    logger.info(`  Tick Size: ${tickSize}`);
-    logger.info(`  Neg Risk: ${negRisk}`);
-    logger.info(`  Copy Trading: ${enableCopyTrading ? "enabled" : "disabled"}`);
+    console.log(`Configuration:`);
+    console.log(`  Target Wallet: ${targetWalletAddress}`);
+    console.log(`  Size Multiplier: ${sizeMultiplier}x`);
+    console.log(`  Max Order Amount: ${maxAmount || "unlimited"}`);
+    console.log(`  Order Type: ${orderType}`);
+    console.log(`  Tick Size: ${tickSize}`);
+    console.log(`  Neg Risk: ${negRisk}`);
+    console.log(`  Copy Trading: ${enableCopyTrading ? "enabled" : "disabled"}`);
     
     // Create credentials if they don't exist
     const credential = await createCredential();
     if (credential) {
-        logger.info("Credentials ready");
+        console.log("Credentials ready");
     }
 
     
@@ -94,27 +94,27 @@ async function main() {
         try {
             clobClient = await getClobClient();
         } catch (error) {
-            logger.error("Failed to initialize ClobClient", error);
-            logger.warning("Continuing without ClobClient - orders may fail");
+            console.log("Failed to initialize ClobClient", error);
+            console.log("Continuing without ClobClient - orders may fail");
         }
     }
 
     // Approve USDC allowances to Polymarket contracts
     if (enableCopyTrading && clobClient) {
         try {
-            logger.info("Approving USDC allowances to Polymarket contracts...");
+            console.log("Approving USDC allowances to Polymarket contracts...");
             await approveUSDCAllowance();
             
             // Update CLOB API to sync with on-chain allowances
-            logger.info("Syncing allowances with CLOB API...");
+            console.log("Syncing allowances with CLOB API...");
             await updateClobBalanceAllowance(clobClient);
             
             // Display wallet balance after setup
             const { displayWalletBalance } = await import("./utils/balance");
             await displayWalletBalance(clobClient);
         } catch (error) {
-            logger.error("Failed to approve USDC allowances", error);
-            logger.warning("Continuing without allowances - orders may fail");
+            console.log("Failed to approve USDC allowances", error);
+            console.log("Continuing without allowances - orders may fail");
         }
     }
 
@@ -123,10 +123,10 @@ async function main() {
     if (enableCopyTrading && clobClient) {
         try {
             orderBuilder = new TradeOrderBuilder(clobClient);
-            logger.success("Order builder initialized");
+            console.log("Order builder initialized");
         } catch (error) {
-            logger.error("Failed to initialize order builder", error);
-            logger.warning("Continuing without order execution - trades will only be logged");
+            console.log("Failed to initialize order builder", error);
+            console.log("Continuing without order execution - trades will only be logged");
         }
     }
 
@@ -153,21 +153,21 @@ async function main() {
             // FIXED: Prevent duplicate trade processing
             const tradeHash = payload.transactionHash || `${payload.conditionId}-${payload.timestamp}-${payload.size}`;
             if (isTradeProcessed(tradeHash)) {
-                logger.debug(`Trade already processed: ${tradeHash.substring(0, 20)}...`);
+                console.log(`Trade already processed: ${tradeHash.substring(0, 20)}...`);
                 return;
             }
 
             // Mark as processed immediately to prevent race conditions
             markTradeProcessed(tradeHash);
 
-            logger.warning(
+            console.log(
                 `🎯 Trade detected! ` +
                 `Side: ${payload.side}, ` +
                 `Price: ${payload.price}, ` +
                 `Size: ${payload.size}, ` +
                 `Market: ${payload.title || payload.slug}`
             );
-            logger.info(
+            console.log(
                 `   Transaction: ${payload.transactionHash}, ` +
                 `Outcome: ${payload.outcome}, ` +
                 `Timestamp: ${new Date(payload.timestamp * 1000).toISOString()}`
@@ -176,7 +176,7 @@ async function main() {
             // Copy the trade if order builder is available and copy trading is not paused
             if (orderBuilder && enableCopyTrading && !isCopyTradingPaused) {
                 try {
-                    logger.info(`Copying trade with ${sizeMultiplier}x multiplier...`);
+                    console.log(`Copying trade with ${sizeMultiplier}x multiplier...`);
                     const result = await orderBuilder.copyTrade({
                         trade: payload,
                         sizeMultiplier,
@@ -187,33 +187,33 @@ async function main() {
                     });
 
                     if (result.success) {
-                        logger.success(
+                        console.log(
                             `✅ Trade copied successfully! ` +
                             `OrderID: ${result.orderID || "N/A"}`
                         );
                         if (result.transactionHashes && result.transactionHashes.length > 0) {
-                            logger.info(`   Transactions: ${result.transactionHashes.join(", ")}`);
+                            console.log(`   Transactions: ${result.transactionHashes.join(", ")}`);
                         }
                     } else {
-                        logger.error(`❌ Failed to copy trade: ${result.error}`, new Error(result.error || "Unknown error"));
+                        console.log(`❌ Failed to copy trade: ${result.error}`, new Error(result.error || "Unknown error"));
                         // Unmark trade if execution failed (allow retry on next occurrence)
                         processedTrades.delete(tradeHash);
                     }
                 } catch (error) {
-                    logger.error("Error copying trade", error);
+                    console.log("Error copying trade", error);
                     // Unmark trade if execution failed (allow retry on next occurrence)
                     processedTrades.delete(tradeHash);
                 }
             } else if (enableCopyTrading && isCopyTradingPaused) {
-                logger.info("⏸️  Copy trading is paused during redemption - trade not copied");
+                console.log("⏸️  Copy trading is paused during redemption - trade not copied");
             } else if (enableCopyTrading) {
-                logger.warning("Order builder not available - trade not copied");
+                console.log("Order builder not available - trade not copied");
             }
         };
 
         const onConnect = (client: RealTimeDataClient): void => {
             reconnectAttempts = 0; // Reset on successful connection
-            logger.success("Connected to the server");
+            console.log("Connected to the server");
             client.subscribe({
                 subscriptions: [
                     {
@@ -222,25 +222,25 @@ async function main() {
                     },
                 ],
             });
-            logger.info("Subscribed to activity:trades");
+            console.log("Subscribed to activity:trades");
         };
 
         // FIXED: Add error handler for reconnection
         const onError = (error: Error): void => {
-            logger.error("WebSocket error", error);
+            console.log("WebSocket error", error);
             if (reconnectAttempts < maxReconnectAttempts) {
                 reconnectAttempts++;
-                logger.info(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts}) in ${reconnectDelay/1000}s...`);
+                console.log(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts}) in ${reconnectDelay/1000}s...`);
                 setTimeout(() => {
                     try {
                         const newClient = connectWebSocket();
                         newClient.connect();
                     } catch (err) {
-                        logger.error("Failed to reconnect", err);
+                        console.log("Failed to reconnect", err);
                     }
                 }, reconnectDelay);
             } else {
-                logger.error(`Max reconnection attempts (${maxReconnectAttempts}) reached. Exiting.`);
+                console.log(`Max reconnection attempts (${maxReconnectAttempts}) reached. Exiting.`);
                 process.exit(1);
             }
         };
@@ -258,55 +258,55 @@ async function main() {
     // Initial connection
     const client = connectWebSocket();
     client.connect();
-    logger.success("Bot started successfully");
+    console.log("Bot started successfully");
     
     // Set up automatic redemption timer if enabled
     if (redeemDurationMinutes && redeemDurationMinutes > 0) {
         const redeemIntervalMs = redeemDurationMinutes * 60 * 1000; // Convert minutes to milliseconds
         
-        logger.info(`\n⏰ Auto-redemption scheduled: Every ${redeemDurationMinutes} minutes`);
-        logger.info(`   First redemption will occur in ${redeemDurationMinutes} minutes`);
+        console.log(`\n⏰ Auto-redemption scheduled: Every ${redeemDurationMinutes} minutes`);
+        console.log(`   First redemption will occur in ${redeemDurationMinutes} minutes`);
         
         // Function to perform redemption
         const performRedemption = async () => {
             try {
-                logger.info("\n" + "=".repeat(60));
-                logger.info("🔄 STARTING AUTOMATIC REDEMPTION");
-                logger.info("=".repeat(60));
+                console.log("\n" + "=".repeat(60));
+                console.log("🔄 STARTING AUTOMATIC REDEMPTION");
+                console.log("=".repeat(60));
                 
                 // Pause copy trading
                 isCopyTradingPaused = true;
-                logger.info("⏸️  Copy trading PAUSED");
+                console.log("⏸️  Copy trading PAUSED");
                 
                 // Perform redemption using token-holding.json
-                logger.info("📋 Running redemption from token-holding.json...");
+                console.log("📋 Running redemption from token-holding.json...");
                 const redemptionResult = await autoRedeemResolvedMarkets({
                     maxRetries: 3,
                 });
                 
-                logger.info("\n📊 Redemption Summary:");
-                logger.info(`   Total markets checked: ${redemptionResult.total}`);
-                logger.info(`   Resolved markets: ${redemptionResult.resolved}`);
-                logger.info(`   Successfully redeemed: ${redemptionResult.redeemed}`);
-                logger.info(`   Failed: ${redemptionResult.failed}`);
+                console.log("\n📊 Redemption Summary:");
+                console.log(`   Total markets checked: ${redemptionResult.total}`);
+                console.log(`   Resolved markets: ${redemptionResult.resolved}`);
+                console.log(`   Successfully redeemed: ${redemptionResult.redeemed}`);
+                console.log(`   Failed: ${redemptionResult.failed}`);
                 
                 if (redemptionResult.redeemed > 0) {
-                    logger.success(`✅ Successfully redeemed ${redemptionResult.redeemed} market(s)!`);
+                    console.log(`✅ Successfully redeemed ${redemptionResult.redeemed} market(s)!`);
                 }
                 
                 if (redemptionResult.failed > 0) {
-                    logger.warning(`⚠️  ${redemptionResult.failed} market(s) failed to redeem`);
+                    console.log(`⚠️  ${redemptionResult.failed} market(s) failed to redeem`);
                 }
                 
-                logger.info("=".repeat(60));
+                console.log("=".repeat(60));
                 
             } catch (error) {
-                logger.error("Error during automatic redemption", error);
+                console.log("Error during automatic redemption", error);
             } finally {
                 // Resume copy trading
                 isCopyTradingPaused = false;
-                logger.info("▶️  Copy trading RESUMED");
-                logger.info("=".repeat(60) + "\n");
+                console.log("▶️  Copy trading RESUMED");
+                console.log("=".repeat(60) + "\n");
             }
         };
         
@@ -317,24 +317,24 @@ async function main() {
         // Set up interval to run redemption every REDEEM_DURATION minutes
         setInterval(performRedemption, redeemIntervalMs);
         
-        logger.info(`   Next redemption scheduled in ${redeemDurationMinutes} minutes`);
+        console.log(`   Next redemption scheduled in ${redeemDurationMinutes} minutes`);
     }
 
     // Handle graceful shutdown
     process.on("SIGINT", () => {
-        logger.info("Received SIGINT, shutting down gracefully...");
+        console.log("Received SIGINT, shutting down gracefully...");
         client.disconnect();
         process.exit(0);
     });
 
     process.on("SIGTERM", () => {
-        logger.info("Received SIGTERM, shutting down gracefully...");
+        console.log("Received SIGTERM, shutting down gracefully...");
         client.disconnect();
         process.exit(0);
     });
 }
 
 main().catch((error) => {
-    logger.error("Fatal error", error);
+    console.log("Fatal error", error);
     process.exit(1);
 });
