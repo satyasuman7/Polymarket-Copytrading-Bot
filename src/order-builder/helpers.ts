@@ -2,6 +2,12 @@ import { Side, OrderType, UserMarketOrder, CreateOrderOptions } from "@polymarke
 import type { TradePayload } from "../utils/types";
 import type { CopyTradeOptions } from "./types";
 
+/** Clamp price to CLOB range [tickSize, 1 - tickSize] to avoid "invalid price" API errors. */
+export function clampPrice(price: number, tickSize: string): number {
+    const t = parseFloat(tickSize);
+    return Math.max(t, Math.min(1 - t, price));
+}
+
 /**
  * Convert trade side string to Side enum
  */
@@ -17,57 +23,53 @@ export function parseTradeSide(side: string): Side {
 
 /**
  * Calculate the amount for a market order based on trade data
- * 
- * For BUY orders: amount is in USDC (price * size)
- * For SELL orders: amount is in shares (size)
+ *
+ * For BUY: if orderSizeTokens is set, amount = price * orderSizeTokens; else price * (size * sizeMultiplier), capped by maxAmount.
+ * For SELL: amount is in shares (size * sizeMultiplier).
  */
 export function calculateMarketOrderAmount(
     trade: TradePayload,
     sizeMultiplier: number = 1.0,
-    maxAmount?: number
+    maxAmount?: number,
+    orderSizeTokens?: number,
+    orderAmountUsdc?: number
 ): number {
-    const adjustedSize = trade.size * sizeMultiplier;
-    
     if (trade.side.toUpperCase() === "BUY") {
-        // BUY: amount is in USDC (price * size)
-        let calculatedAmount = trade.price * adjustedSize;
-        if(calculatedAmount < 1) {
-            return 1;
+        if (orderAmountUsdc != null && orderAmountUsdc > 0) return Math.max(1, orderAmountUsdc);
+        let calculatedAmount: number;
+        if (orderSizeTokens != null && orderSizeTokens > 0) {
+            calculatedAmount = trade.price * orderSizeTokens;
+        } else {
+            const adjustedSize = trade.size * sizeMultiplier;
+            calculatedAmount = trade.price * adjustedSize;
+            if (calculatedAmount < 1) return 1;
+            if (maxAmount != null && calculatedAmount > maxAmount) {
+                calculatedAmount = maxAmount * 0.5;
+                return maxAmount;
+            }
         }
-        if (maxAmount !== undefined && calculatedAmount > maxAmount) {
-            calculatedAmount = maxAmount*0.5;
-            return maxAmount;
-        }
-        return calculatedAmount;
-    } else {
-        // SELL: amount is in shares
-        return adjustedSize;
+        return Math.max(1, calculatedAmount);
     }
+    const adjustedSize = trade.size * sizeMultiplier;
+    return adjustedSize;
 }
 
 /**
  * Convert a trade payload to a UserMarketOrder
  */
 export function tradeToMarketOrder(options: CopyTradeOptions): UserMarketOrder {
-    const { trade, sizeMultiplier = 1.0, maxAmount, orderType = OrderType.FAK, feeRateBps } = options;
-    
+    const { trade, sizeMultiplier = 1.0, maxAmount, orderSizeTokens, orderAmountUsdc, orderType = OrderType.FAK, feeRateBps, tickSize = "0.01" } = options;
     const side = parseTradeSide(trade.side);
-    const amount = calculateMarketOrderAmount(trade, sizeMultiplier, maxAmount);
-    
+    const amount = calculateMarketOrderAmount(trade, sizeMultiplier, maxAmount, orderSizeTokens, orderAmountUsdc);
+    const price = clampPrice(trade.price ?? 0, tickSize);
     const marketOrder: UserMarketOrder = {
         tokenID: trade.asset,
         side,
         amount,
+        price,
         orderType,
         ...(feeRateBps !== undefined && { feeRateBps }),
     };
-    
-    // For market orders, price is optional (uses market price if not provided)
-    // But we can include it as a hint
-    if (trade.price) {
-        marketOrder.price = trade.price;
-    }
-    
     return marketOrder;
 }
 

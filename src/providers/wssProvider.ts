@@ -1,5 +1,7 @@
 import { RealTimeDataClient, type RealTimeDataClientArgs } from "@polymarket/real-time-data-client";
-import { config } from "../utils/config";
+import { env } from "../config/env";
+
+const DEFAULT_PING_INTERVAL = 5000;
 
 /**
  * Get a RealTimeDataClient instance with optional callbacks.
@@ -8,8 +10,8 @@ import { config } from "../utils/config";
  */
 export function getRealTimeDataClient(args?: RealTimeDataClientArgs): RealTimeDataClient {
     return new RealTimeDataClient({
-        host: config.websocket.host,
-        pingInterval: config.websocket.pingInterval,
+        host: env.USER_REAL_TIME_DATA_URL,
+        pingInterval: DEFAULT_PING_INTERVAL,
         ...args,
     });
 }

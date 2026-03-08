@@ -1,434 +1,395 @@
 # Polymarket Copy Trading Bot
 
-A production-grade Polymarket copy trading bot with bug fixes and improvements. This bot automatically monitors target wallets and copies their trades in real-time using WebSocket connections.
+A copy trading bot for Polymarket that mirrors trades from target wallets in real time. Built with TypeScript: WebSocket or API polling for trade detection, Polymarket CLOB for execution, with risk controls and optional auto-redemption.
 
-## 🎯 Overview
+---
 
-This bot is an improved version of the Polymarket copy trading bot with the following fixes and enhancements:
+## Table of contents
 
-### ✅ Fixes Applied
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Quick start: run the bot in 5 steps](#quick-start-run-the-bot-in-5-steps)
+- [How to run the bot](#how-to-run-the-bot)
+- [How to set environment variables (.env)](#how-to-set-environment-variables-env)
+- [Target wallets (config.json)](#target-wallets-configjson)
+- [Environment variable reference](#environment-variable-reference)
+- [Scripts reference](#scripts-reference)
+- [Project structure](#project-structure)
+- [Security & disclaimer](#security--disclaimer)
 
-1. **Fixed maxAmount calculation bug** - Corrected logic in order amount calculation
-2. **Enabled balance validation for SELL orders** - Re-enabled commented-out balance checks to prevent overselling
-3. **Added duplicate trade prevention** - Prevents processing the same trade multiple times using transaction hash tracking
-4. **Improved wallet address validation** - Now checks all possible wallet address fields (proxyWallet, wallet, user, address, userAddress)
-5. **Added WebSocket reconnection logic** - Automatic reconnection with exponential backoff on connection failures
-6. **Fixed directory creation** - Automatically creates data directory if it doesn't exist
-7. **Enhanced error handling** - Better error recovery and logging
+---
 
-## 🏗️ Architecture
+## Overview
 
-### Technology Stack
+- **Real-time trade mirroring** – Monitors target wallets via WebSocket or API and copies their trades.
+- **Configurable sizing** – Per-wallet order size in `src/config/config.json` (USDC or token amount).
+- **Risk management** – Buy threshold, stop-loss (SELL_PRICE), take-profit (PROFIT_SELL_THRESHOLD).
+- **Auto-redemption** – Optional scheduled redemption of resolved positions.
+- **Telegram** – Optional notifications when target wallets trade.
 
-- **Runtime**: Node.js with TypeScript
-- **Language**: TypeScript 5.9+ (strict mode)
-- **Blockchain**: Polygon (Ethereum-compatible L2)
-- **APIs**: 
-  - Polymarket CLOB Client (`@polymarket/clob-client`)
-  - Polymarket Real-Time Data Client (`@polymarket/real-time-data-client`)
-- **Web3**: Ethers.js for blockchain interactions
-- **Logging**: Custom structured logger with chalk
+---
 
-### System Flow
+## Prerequisites
 
-```
-WebSocket Connection → Trade Detection → Wallet Validation → Duplicate Check
-                                                                    ↓
-Order Execution ← Balance Validation ← Order Building ← Trade Processing
-                                                                    ↓
-Holdings Update → Success Logging
-```
+Before you start, ensure you have:
 
-## 📦 Installation
+| Requirement | Details |
+|-------------|---------|
+| **Node.js** | Version 18 or higher. Check with `node -v`. |
+| **npm** | Comes with Node.js. Check with `npm -v`. |
+| **Polygon wallet** | A wallet (e.g. MetaMask) on Polygon with some USDC for trading. |
+| **Polymarket account** | You need your **proxy (smart) wallet** address from Polymarket (see [Finding your proxy wallet](#finding-your-proxy-wallet)). |
 
-### Prerequisites
+---
 
-- **Node.js** 18+ and npm
-- **TypeScript** 5.9+
-- **Polygon wallet** with USDC for trading
-- **Private key** for wallet authentication
+## Quick start: run the bot in 5 steps
 
-### Setup
-
-1. **Clone or navigate to the project**
+1. **Clone and install**
    ```bash
    cd Polymarket-Copytrading-Bot
+   npm install
    ```
 
-2. **Install dependencies**
+2. **Create your `.env` file**
+   ```bash
+   cp .env.example .env
+   ```
+
+3. **Edit `.env` – set these required values**
+   - `PRIVATE_KEY` – Your wallet private key (e.g. from MetaMask: Account → three dots → Account details → Export Private Key). Must start with `0x`.
+   - `PROXY_WALLET_ADDRESS` – Your Polymarket proxy wallet address (see [Finding your proxy wallet](#finding-your-proxy-wallet)).
+   - `DRY_RUN=false` – So the bot places real orders (set `true` to only log, no orders).
+
+4. **Edit `src/config/config.json` – add target wallets**
+   - Add the Polymarket wallet addresses you want to copy. The number is the order size (tokens or USDC depending on `ORDER_SIZE_IN_TOKENS`).
+   ```json
+   {
+       "0xAddressOfTrader1": 1,
+       "0xAddressOfTrader2": 5
+   }
+   ```
+
+5. **Run the bot**
+   ```bash
+   npm start
+   ```
+   Or use API polling instead: `npm run copytrade`.
+
+On first run, the bot will create `src/data/credential.json` (Polymarket API credentials). Keep that file and `.env` secret and never commit them.
+
+---
+
+## How to run the bot
+
+### Two ways to run copy trading
+
+| Mode | Command | When to use |
+|------|---------|-------------|
+| **WebSocket** | `npm start` | Real-time; uses Polymarket’s live feed. Best for low latency. |
+| **API polling** | `npm run copytrade` | Fetches trades on an interval (default 30s). Simpler, no WebSocket. |
+
+Both use the same `.env` and `src/config/config.json`. Use one at a time.
+
+### Step-by-step: first run
+
+1. **Install dependencies** (once)
    ```bash
    npm install
    ```
 
-3. **Configure environment variables**
+2. **Copy and fill `.env`**
    ```bash
    cp .env.example .env
    ```
-   
-   Edit `.env` with your configuration:
-   ```env
-   # Wallet Configuration (REQUIRED)
-   PRIVATE_KEY=your_private_key_here
-   TARGET_WALLET=0x... # Wallet address to copy trades from
-   
-   # Trading Configuration
-   SIZE_MULTIPLIER=1.0
-   MAX_ORDER_AMOUNT=100
-   ORDER_TYPE=FAK
-   TICK_SIZE=0.01
-   NEG_RISK=false
-   ENABLE_COPY_TRADING=true
-   
-   # Redemption Configuration
-   REDEEM_DURATION=60 # Minutes between auto-redemptions (null = disabled)
-   
-   # API Configuration
-   CHAIN_ID=137 # Polygon mainnet (80002 for Amoy testnet)
-   CLOB_API_URL=https://clob.polymarket.com
-   USER_REAL_TIME_DATA_URL=wss://ws-live-data.polymarket.com
-   
-   # Optional
-   DEBUG=false
+   Open `.env` and set at least:
+   - `PRIVATE_KEY=0x...` (your EOA private key)
+   - `PROXY_WALLET_ADDRESS=0x...` (your Polymarket proxy)
+   - `DRY_RUN=false` (to allow real buy/sell)
+
+3. **Add target wallets** in `src/config/config.json`  
+   Format: `"0xWalletAddress": number`. The number is the size per copy-trade (see [Target wallets](#target-wallets-configjson)).
+
+4. **Optional: test without placing orders**  
+   Set `DRY_RUN=true` in `.env`, then run the bot. It will log what it would do but not send orders.
+
+5. **Start the bot**
+   ```bash
+   npm start
+   ```
+   or
+   ```bash
+   npm run copytrade
    ```
 
-4. **Initialize credentials**
-   On first run, the bot will automatically create API credentials using your `PRIVATE_KEY`.
-   Credentials are saved to `src/data/credential.json`.
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `PRIVATE_KEY` | string | **required** | Private key of trading wallet |
-| `TARGET_WALLET` | string | **required** | Wallet address to copy trades from |
-| `SIZE_MULTIPLIER` | number | `1.0` | Multiplier for trade sizes (e.g., `2.0` = 2x size) |
-| `MAX_ORDER_AMOUNT` | number | `undefined` | Maximum USDC amount per order |
-| `ORDER_TYPE` | string | `FAK` | Order type: `FAK` or `FOK` |
-| `TICK_SIZE` | string | `0.01` | Price precision: `0.1`, `0.01`, `0.001`, `0.0001` |
-| `NEG_RISK` | boolean | `false` | Enable negative risk (allow negative balances) |
-| `ENABLE_COPY_TRADING` | boolean | `true` | Enable/disable copy trading |
-| `REDEEM_DURATION` | number | `null` | Minutes between auto-redemptions (null = disabled) |
-| `CHAIN_ID` | number | `137` | Blockchain chain ID (137 = Polygon, 80002 = Amoy) |
-| `CLOB_API_URL` | string | `https://clob.polymarket.com` | CLOB API endpoint |
-| `USER_REAL_TIME_DATA_URL` | string | `wss://ws-live-data.polymarket.com` | WebSocket URL |
-| `DEBUG` | boolean | `false` | Enable debug logging |
-
-### Trading Parameters
-
-- **Size Multiplier**: Scales the copied trade size. `1.0` = exact copy, `2.0` = double size, `0.5` = half size
-- **Max Order Amount**: Safety limit to prevent oversized positions. When exceeded, uses 50% of maxAmount
-- **Order Type**:
-  - `FAK` (Fill-and-Kill): Partial fills allowed, remaining unfilled portion cancelled
-  - `FOK` (Fill-or-Kill): Entire order must fill immediately or cancelled
-- **Tick Size**: Price precision for order placement. Must match market's tick size
-- **Negative Risk**: When enabled, allows orders that may result in negative USDC balance
-
-## 🚀 Usage
-
-### Starting the Bot
-
-```bash
-# Start copy trading bot
-npm start
-
-# Or using ts-node directly
-ts-node src/index.ts
-```
-
-The bot will:
-1. Initialize WebSocket connection to Polymarket
-2. Subscribe to trade activity feed
-3. Monitor target wallet for trades
-4. Automatically copy trades when detected
-5. Run scheduled redemptions (if enabled)
-
-### Manual Redemption
-
-#### Redeem from Holdings File
-```bash
-# Redeem all resolved markets from token-holding.json
-npm run redeem
-
-# Or directly
-ts-node src/auto-redeem.ts
-```
-
-#### Redeem Specific Market
-```bash
-# Check market status
-ts-node src/redeem.ts --check <conditionId>
-
-# Redeem specific market
-ts-node src/redeem.ts <conditionId>
-```
-
-## 🔧 Technical Details
-
-### Trade Execution Flow
-
-1. **Trade Detection**: WebSocket receives trade activity message
-2. **Wallet Filtering**: Validates trade originates from target wallet (checks all address fields)
-3. **Duplicate Prevention**: Checks if trade has already been processed (by transaction hash)
-4. **Order Construction**: Converts trade payload to market order:
-   - Applies size multiplier
-   - Validates against max order amount
-   - Adjusts price to tick size
-   - Sets order type (FAK/FOK)
-5. **Balance Validation**: 
-   - For BUY: Checks sufficient USDC balance
-   - For SELL: Checks available token balance (accounting for open orders)
-6. **Allowance Management**: Ensures proper token approvals
-7. **Order Execution**: Submits order to CLOB API
-8. **Holdings Update**: Records token positions locally
-9. **Logging**: Logs all operations with structured output
-
-### Key Improvements
-
-#### 1. Duplicate Trade Prevention
-```typescript
-// Tracks processed trades by transaction hash
-const processedTrades = new Set<string>();
-
-// Prevents processing same trade twice
-if (isTradeProcessed(tradeHash)) {
-    return; // Skip duplicate
-}
-```
-
-#### 2. Enhanced Wallet Validation
-```typescript
-// Checks all possible wallet address fields
-function isFromTargetWallet(payload: TradePayload, targetAddress: string): boolean {
-    const walletFields = [
-        payload.proxyWallet,
-        payload.wallet,
-        payload.user,
-        payload.address,
-        payload.userAddress,
-    ];
-    return walletFields.some(field => field?.toLowerCase() === target);
-}
-```
-
-#### 3. WebSocket Reconnection
-```typescript
-// Automatic reconnection with exponential backoff
-if (reconnectAttempts < maxReconnectAttempts) {
-    setTimeout(() => {
-        const newClient = connectWebSocket();
-        newClient.connect();
-    }, reconnectDelay);
-}
-```
-
-#### 4. Balance Validation for SELL Orders
-```typescript
-// Re-enabled balance validation to prevent overselling
-const balanceCheck = await validateSellOrderBalance(
-    this.client,
-    tokenId,
-    holdingsAmount
-);
-const sellAmount = Math.min(holdingsAmount, balanceCheck.available);
-```
-
-### Redemption Mechanism
-
-The bot maintains a local JSON database (`src/data/token-holding.json`) tracking all token positions. When markets resolve:
-
-1. **Resolution Check**: Queries Polymarket API for market status
-2. **Winning Detection**: Identifies winning outcome tokens
-3. **Balance Verification**: Confirms user holds winning tokens
-4. **Redemption Execution**: Calls Polymarket redemption contract
-5. **Holdings Cleanup**: Removes redeemed positions from database
-
-### Security Features
-
-- **Credential Management**: Secure API key storage in `src/data/credential.json`
-- **Allowance Control**: Automatic USDC approval management
-- **Balance Validation**: Pre-order balance checks prevent over-trading
-- **Error Handling**: Comprehensive error handling with graceful degradation
-- **Private Key Security**: Uses environment variables (never hardcoded)
-- **Duplicate Prevention**: Prevents accidental double execution
-
-## 📁 Project Structure
-
-```
-Polymarket-Copytrading-Bot/
-├── src/
-│   ├── index.ts                 # Main bot entry point (FIXED)
-│   ├── auto-redeem.ts           # Automated redemption script
-│   ├── redeem.ts                # Manual redemption script
-│   ├── data/                    # Data storage (auto-created)
-│   │   ├── credential.json      # API credentials (auto-generated)
-│   │   └── token-holding.json  # Token holdings database
-│   ├── order-builder/           # Order construction logic
-│   │   ├── builder.ts           # TradeOrderBuilder class (FIXED)
-│   │   ├── helpers.ts           # Order conversion utilities (FIXED)
-│   │   ├── types.ts             # Type definitions
-│   │   └── index.ts             # Exports
-│   ├── providers/               # API clients
-│   │   ├── clobclient.ts        # CLOB API client
-│   │   ├── wssProvider.ts       # WebSocket provider
-│   │   └── rpcProvider.ts       # RPC provider
-│   ├── security/                # Security utilities
-│   │   ├── allowance.ts         # Token approval management
-│   │   └── createCredential.ts # Credential generation
-│   └── utils/                   # Utility functions
-│       ├── balance.ts           # Balance checking
-│       ├── holdings.ts          # Holdings management (FIXED)
-│       ├── logger.ts            # Logging utility
-│       ├── redeem.ts            # Redemption logic
-│       ├── types.ts             # TypeScript types
-│       └── config.ts            # Configuration
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
-## 🔌 API Integration
-
-### Polymarket CLOB Client
-
-The bot uses the official `@polymarket/clob-client` for order execution:
-
-```typescript
-import { ClobClient, OrderType, Side } from "@polymarket/clob-client";
-
-const client = await getClobClient();
-const response = await client.createAndPostMarketOrder(
-    marketOrder,
-    orderOptions,
-    orderType
-);
-```
-
-### Real-Time Data Client
-
-WebSocket connection for live trade monitoring:
-
-```typescript
-import { RealTimeDataClient } from "@polymarket/real-time-data-client";
-
-client.subscribe({
-    subscriptions: [{
-        topic: "activity",
-        type: "trades"
-    }]
-});
-```
-
-## 📊 Monitoring & Logging
-
-The bot provides comprehensive logging:
-
-- **Trade Detection**: Logs all detected trades from target wallet
-- **Order Execution**: Records order placement and results
-- **Redemption Activity**: Tracks redemption operations
-- **Error Handling**: Detailed error messages with stack traces
-- **Balance Updates**: Displays wallet balances after operations
-- **WebSocket Status**: Logs connection and reconnection events
-
-Log levels:
-- `info`: General operational messages
-- `success`: Successful operations
-- `warning`: Non-critical issues
-- `error`: Errors requiring attention
-- `debug`: Debug messages (when `DEBUG=true`)
-
-## ⚠️ Risk Considerations
-
-1. **Market Risk**: Copy trading amplifies both gains and losses
-2. **Liquidity Risk**: Large orders may not fill completely
-3. **Slippage**: Market orders execute at current market price
-4. **Gas Costs**: Each transaction incurs Polygon gas fees
-5. **API Limits**: Rate limiting may affect order execution
-6. **Network Latency**: WebSocket delays may cause missed trades
-7. **Duplicate Prevention**: Failed trades are unmarked for retry, which could cause issues if not handled properly
-
-**Recommendations**:
-- Start with small size multipliers
-- Set conservative max order amounts
-- Monitor wallet balance regularly
-- Test with small amounts before scaling
-- Review logs regularly for errors
-- Keep sufficient USDC balance for trading
-
-## 🛠️ Development
-
-### Building
-
-```bash
-# Type checking
-npm run build
-
-# Run in development
-npm start
-```
-
-### Testing
-
-```bash
-# Test redemption (dry run)
-ts-node src/auto-redeem.ts
-
-# Test specific market
-ts-node src/redeem.ts --check <conditionId>
-```
-
-## 🐛 Bug Fixes Summary
-
-### Fixed Issues
-
-1. **maxAmount Calculation Bug** (helpers.ts)
-   - **Issue**: When calculated amount exceeded maxAmount, it returned maxAmount instead of the calculated capped amount
-   - **Fix**: Returns `maxAmount * 0.5` when limit is exceeded (as per original logic)
-
-2. **Disabled Balance Validation** (builder.ts)
-   - **Issue**: Balance validation for SELL orders was commented out, risking overselling
-   - **Fix**: Re-enabled balance validation to prevent selling more tokens than available
-
-3. **Missing Duplicate Prevention** (index.ts)
-   - **Issue**: Same trade could be processed multiple times if WebSocket sent duplicates
-   - **Fix**: Added transaction hash tracking to prevent duplicate execution
-
-4. **Incomplete Wallet Validation** (index.ts)
-   - **Issue**: Only checked `proxyWallet` field, missing other possible address fields
-   - **Fix**: Now checks all wallet address fields (proxyWallet, wallet, user, address, userAddress)
-
-5. **No WebSocket Reconnection** (index.ts)
-   - **Issue**: Bot would crash on WebSocket disconnection
-   - **Fix**: Added automatic reconnection logic with retry limits
-
-6. **Missing Directory Creation** (holdings.ts)
-   - **Issue**: Data directory might not exist, causing file write failures
-   - **Fix**: Automatically creates `src/data/` directory if it doesn't exist
-
-## 📝 License
-
-ISC
-
-## 🤝 Contributing
-
-Contributions welcome! Please ensure:
-- Code follows TypeScript best practices
-- All functions are properly typed
-- Error handling is comprehensive
-- Logging is informative
-- Documentation is updated
-
-## 📞 Support
-
-For issues, questions, or contributions:
-- Review existing documentation
-- Check Polymarket API documentation
-- Review logs for error messages
+6. **First-run behaviour**
+   - If `src/data/credential.json` is missing, the bot creates it (Polymarket API key).
+   - It may prompt or run allowance/balance checks. Ensure your proxy wallet has USDC and approvals on Polygon.
+
+### Other useful commands
+
+- **Check wallet and balance** (no trading):
+  ```bash
+  npm run balance
+  ```
+- **Monitor one wallet** (log trades only, no copying):
+  ```bash
+  npm run monitor
+  ```
+- **Auto-redeem** resolved positions:
+  ```bash
+  npm run auto-redeem
+  ```
+- **Clear copy-trade history** (e.g. to reprocess old trades):
+  ```bash
+  npm run clear-history
+  ```
 
 ---
 
-**Disclaimer**: This software is provided as-is. Trading cryptocurrencies and prediction markets carries significant risk. Use at your own discretion and never trade more than you can afford to lose.
+## How to set environment variables (.env)
 
-**Version**: 1.0.0 (Fixed and Improved)
-**Last Updated**: 2024
+The bot reads configuration from a `.env` file in the project root. Never commit `.env` or share it.
+
+### Creating `.env`
+
+```bash
+cp .env.example .env
+```
+
+Then open `.env` in a text editor and replace the placeholder values.
+
+### Required variables (must set)
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `PRIVATE_KEY` | `0xabc123...` | Your wallet (EOA) private key. Used to sign every order. Export from MetaMask (Account → ⋮ → Account details → Export Private Key). **Keep secret.** |
+| `PROXY_WALLET_ADDRESS` | `0x875058B4...` | Your Polymarket proxy (smart) wallet address. This is where the exchange holds your positions. Required for the CLOB client. |
+
+#### Finding your proxy wallet
+
+- **Option A:** In the Polymarket app or website, go to your profile / account or deposit/withdraw. The proxy address is often shown there (it’s the “smart wallet” or “proxy” address).
+- **Option B:** Set only `PRIVATE_KEY` in `.env`, run `npm run balance`. The script can derive and print the proxy address for your EOA; then copy it into `PROXY_WALLET_ADDRESS` in `.env`.
+
+### Enabling real buy/sell orders
+
+| Variable | Value | Effect |
+|----------|--------|--------|
+| `DRY_RUN` | `false` | Bot **places real orders** (buy/sell). |
+| `DRY_RUN` | `true` or unset | Bot **only logs**; no orders are sent. Safe for testing. |
+
+Set `DRY_RUN=false` in `.env` when you want the bot to actually trade.
+
+### Copy-trading switch
+
+| Variable | Value | Effect |
+|----------|--------|--------|
+| `ENABLE_COPY_TRADING` | `true` or unset | Copy trading is **on** (bot will copy target wallets). |
+| `ENABLE_COPY_TRADING` | `false` | Copy trading is **off** (e.g. only monitor or redeem). |
+
+### Chain and RPC
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `CHAIN_ID` | `137` | `137` = Polygon mainnet (production). `80002` = Amoy testnet. |
+| `RPC_URL` | `https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY` | Full RPC URL. Use `https` (not `wss`). If set, `RPC_TOKEN` is ignored. |
+| `RPC_TOKEN` | `your_alchemy_key` | If `RPC_URL` is not set, the bot builds the RPC URL using this (e.g. Alchemy API key). |
+
+You can leave RPC unset; the bot has default endpoints (rate limits may apply).
+
+### Trading behaviour
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `ORDER_TYPE` | `FAK` | `FAK` (fill-and-kill) or `FOK` (fill-or-kill). |
+| `TICK_SIZE` | `0.01` | Price step: `0.1`, `0.01`, `0.001`, or `0.0001`. |
+| `ORDER_SIZE_IN_TOKENS` | `true` | If `true`, numbers in `config.json` = **token count**. If `false`, they’re treated as **USDC** (or balance-based). |
+| `ORDER_SIZE_IN_USDC` | `true` | If `true`, `config.json` numbers = fixed **USDC** amount (no price fetch). |
+
+### Risk and thresholds
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `BUY_THRESHOLD` | `0.45` | Only copy a **BUY** when the token’s price is **above** this (e.g. 0.45 = 45¢). |
+| `SELL_PRICE` | `0.35` | **Stop-loss:** sell when token price goes **below** this. |
+| `PROFIT_SELL_THRESHOLD` | `0.99` | **Take-profit:** sell when token price reaches this (e.g. 0.99). |
+| `PENDING_BUY_TIME_THRESHOLD_SECONDS` | `160` | For “pending” buys: only buy after this many seconds past the 5m boundary. |
+
+### Slippage and retries
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `BUY_SLIPPAGE_BPS` | `200` | Buy slippage in basis points (200 = 2%). |
+| `SELL_SLIPPAGE_BPS` | `100` | Sell slippage in basis points (100 = 1%). |
+| `ORDER_RETRY_ATTEMPTS` | `5` | How many times to retry placing an order. |
+| `ORDER_RETRY_DELAY_MS` | `200` | Delay between retries (ms). |
+
+### API polling (for `npm run copytrade`)
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `POLL_INTERVAL_MS` | `30000` | How often to fetch new trades (ms). 30000 = 30 seconds. |
+| `WALLET_FETCH_DELAY_MS` | `800` | Delay between each target wallet request (rate limiting). |
+
+### Optional: Telegram
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `TELEGRAM_BOT_TOKEN` | `123456:ABC...` | Bot token from [@BotFather](https://t.me/BotFather). Leave empty to disable. |
+| `TELEGRAM_CHAT_ID` | `7744299798` | Chat ID to receive alerts. Leave empty to disable. |
+
+When both are set, the bot can send a notification when a target wallet trades.
+
+### Optional: auto-redeem and CLOB
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `REDEEM_DURATION` | `120` | Run auto-redeem every N minutes. Empty or 0 = disabled. |
+| `CLOB_API_URL` | `https://clob.polymarket.com` | CLOB API base URL. Default is production. |
+
+### Debug
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `DEBUG` | `true` | Enable extra debug logging. |
+
+### Minimal `.env` example (real orders)
+
+```env
+PRIVATE_KEY=0xYourPrivateKeyHere
+PROXY_WALLET_ADDRESS=0xYourPolymarketProxyAddress
+DRY_RUN=false
+ENABLE_COPY_TRADING=true
+```
+
+Everything else can be omitted to use defaults, or copy from `.env.example` and adjust.
+
+---
+
+## Target wallets (config.json)
+
+**Target wallets are not in `.env`.** They are configured in **`src/config/config.json`**.
+
+### Format
+
+```json
+{
+    "0xWalletAddressToCopy1": 1,
+    "0xWalletAddressToCopy2": 5
+}
+```
+
+- **Key** – Polymarket wallet address (proxy or EOA) of the trader you want to copy.
+- **Value** – Number: order size per copy-trade.
+  - If `ORDER_SIZE_IN_TOKENS=true` (default): size = **number of tokens** to buy/sell.
+  - If `ORDER_SIZE_IN_TOKENS=false`: size = **USDC** amount (or balance-based depending on config).
+
+### Where to get target addresses
+
+Use the Polymarket profile or activity URL of the trader; the address shown there (often the proxy) is what you put in `config.json`. The bot matches trades by this address.
+
+### Example
+
+Copy two traders: one with 1 token per trade, one with 5 tokens per trade:
+
+```json
+{
+    "0xaac8e98e05cf679616dec6c47755748b4cb0bff1": 1,
+    "0x4c353dd347c2e7d8bcdc5cd6ee569de7baf23e2f": 5
+}
+```
+
+Save the file; the bot reads it on startup. No need to restart for every edit if you only change config occasionally (restart after editing for changes to apply).
+
+---
+
+## Environment variable reference
+
+Quick reference for all supported variables. See [How to set environment variables](#how-to-set-environment-variables-env) for details.
+
+| Variable | Required | Default | Description |
+|----------|----------|--------|-------------|
+| `PRIVATE_KEY` | Yes | — | EOA private key. |
+| `PROXY_WALLET_ADDRESS` | Yes | — | Polymarket proxy wallet. |
+| `DRY_RUN` | No | `true` | `false` = place orders; `true` = log only. |
+| `ENABLE_COPY_TRADING` | No | `true` | `false` = disable copy trading. |
+| `CHAIN_ID` | No | `137` | `137` = Polygon mainnet, `80002` = Amoy. |
+| `RPC_URL` | No | — | Full RPC URL (https). |
+| `RPC_TOKEN` | No | — | e.g. Alchemy key to build RPC URL. |
+| `CLOB_API_URL` | No | `https://clob.polymarket.com` | CLOB API base. |
+| `ORDER_TYPE` | No | `FAK` | `FAK` or `FOK`. |
+| `TICK_SIZE` | No | `0.01` | `0.1`, `0.01`, `0.001`, `0.0001`. |
+| `NEG_RISK` | No | `false` | Negative-risk exchange. |
+| `ORDER_SIZE_IN_TOKENS` | No | `true` | config.json = token count. |
+| `ORDER_SIZE_IN_USDC` | No | `false` | config.json = fixed USDC. |
+| `BUY_THRESHOLD` | No | `0.5` | Min price to copy a BUY. |
+| `SELL_PRICE` | No | `0.45` | Sell when price below this. |
+| `PROFIT_SELL_THRESHOLD` | No | `0.98` | Sell when price ≥ this. |
+| `PENDING_BUY_TIME_THRESHOLD_SECONDS` | No | `210` | Pending buy delay (seconds). |
+| `BUY_SLIPPAGE_BPS` | No | `200` | Buy slippage (bps). |
+| `SELL_SLIPPAGE_BPS` | No | `100` | Sell slippage (bps). |
+| `ORDER_RETRY_ATTEMPTS` | No | `5` | Order retries. |
+| `ORDER_RETRY_DELAY_MS` | No | `200` | Retry delay (ms). |
+| `POLL_INTERVAL_MS` | No | `30000` | API poll interval (ms). |
+| `WALLET_FETCH_DELAY_MS` | No | `800` | Delay between wallet fetches (ms). |
+| `USER_REAL_TIME_DATA_URL` | No | `wss://ws-live-data.polymarket.com` | WebSocket URL. |
+| `TELEGRAM_BOT_TOKEN` | No | — | Telegram bot token. |
+| `TELEGRAM_CHAT_ID` | No | — | Telegram chat ID. |
+| `REDEEM_DURATION` | No | — | Auto-redeem interval (minutes). |
+| `DEBUG` | No | `false` | Extra logging. |
+
+---
+
+## Scripts reference
+
+| Command | Description |
+|---------|-------------|
+| `npm start` | WebSocket copy-trade bot (real-time). |
+| `npm run copytrade` | API polling copy-trade bot. |
+| `npm run monitor` | Monitor one wallet (no copying). |
+| `npm run balance` | Show EOA, proxy, and USDC balances. |
+| `npm run auto-redeem` | Auto-redeem resolved positions. |
+| `npm run clear-history` | Clear processed-trades / bought/sold history. |
+| `npm run redeem` | Manual redeem (CONDITION_ID / INDEX_SETS in script or env). |
+| `npm run manual-add-holdings` | Add holdings to token-holding.json. |
+| `npm run sync-holdings` | Sync holdings from wallet. |
+
+---
+
+## Project structure
+
+```
+polymarket-copytrading-bot-ts/
+├── .env                    # Your secrets (create from .env.example)
+├── .env.example            # Template for .env
+├── package.json
+├── src/
+│   ├── index.ts            # WebSocket copy-trade entry (npm start)
+│   ├── copytrade.ts    # API copy-trade entry (npm run copytrade)
+│   ├── auto-redeem-copytrade.ts
+│   ├── config/
+│   │   ├── env.ts          # Reads .env
+│   │   └── config.json     # Target wallets + sizes
+│   ├── copy-trade/
+│   │   ├── core.ts         # processTrade() – shared copy logic
+│   │   └── risk-manager.ts
+│   ├── data/
+│   │   ├── credential.json # API credentials (auto-created)
+│   │   └── token-holding.json
+│   ├── providers/
+│   │   ├── clobclient.ts   # CLOB (uses PRIVATE_KEY + PROXY_WALLET_ADDRESS)
+│   │   └── wssProvider.ts
+│   ├── security/
+│   │   ├── createCredential.ts
+│   │   └── allowance.ts
+│   ├── other/
+│   │   ├── redeem.ts
+│   │   ├── monitor-wallet.ts
+│   │   └── wallet-balance.ts
+│   └── utils/
+│       ├── proxyWallet.ts
+│       ├── balance.ts
+│       └── redeem.ts
+└── README.md
+```
+
+---

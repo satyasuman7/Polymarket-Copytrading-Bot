@@ -1,37 +1,39 @@
-import { ApiKeyCreds, ClobClient } from "@polymarket/clob-client";
+import { ApiKeyCreds, ClobClient, Chain } from "@polymarket/clob-client";
 import { writeFileSync, existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { Wallet } from "@ethersproject/wallet";
-import { config } from "../utils/config";
+import { logger } from "../utils/logger";
+import { env } from "../config/env";
 
 export async function createCredential(): Promise<ApiKeyCreds | null> {
-    const privateKey = process.env.PRIVATE_KEY;
+    const privateKey = env.PRIVATE_KEY;
     if (!privateKey) {
-        console.log("[ERROR] PRIVATE_KEY not found");
+        logger.error("PRIVATE_KEY not found");
         return null;
     }
 
     // Check if credentials already exist
     // const credentialPath = resolve(process.cwd(), "src/data/credential.json");
     // if (existsSync(credentialPath)) {
-    //     console.log(`[INFO] Credentials already exist. Returning existing credentials.`);
+    //     logger.info("Credentials already exist. Returning existing credentials.");
     //     return JSON.parse(readFileSync(credentialPath, "utf-8"));
     // }
 
     try {
         const wallet = new Wallet(privateKey);
-        const chainId = config.chain.chainId;
-        const host = config.clob.apiUrl;
+        logger.info(`Wallet address: ${wallet.address}`);
+        const chainId = env.CHAIN_ID as Chain;
+        const host = env.CLOB_API_URL;
         
         // Create temporary ClobClient just for credential creation
         const clobClient = new ClobClient(host, chainId, wallet);
         const credential = await clobClient.createOrDeriveApiKey();
         
         await saveCredential(credential);
-        console.log("[SUCCESS] Credential created successfully");
+        logger.success("Credential created successfully");
         return credential;
     } catch (error) {
-        console.log(`[ERROR] Error creating credential: ${error instanceof Error ? error.message : String(error)}`);
+        logger.error(`Error creating credential: ${error instanceof Error ? error.message : String(error)}`);
         return null;
     }
 }   
