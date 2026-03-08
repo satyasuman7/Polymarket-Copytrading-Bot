@@ -1,5 +1,4 @@
 import { ClobClient, AssetType, type OpenOrder } from "@polymarket/clob-client";
-import { logger } from "./logger";
 
 const CLOB_DECIMALS = 6;
 
@@ -63,13 +62,13 @@ export async function getAvailableBalance(
 
         const availableBalance = totalBalance - reservedAmount;
 
-        logger.debug(
+        console.log(
             `Balance check: Total=${totalBalance}, Reserved=${reservedAmount}, Available=${availableBalance}`
         );
 
         return Math.max(0, availableBalance);
     } catch (error) {
-        logger.error(
+        console.log(
             `Failed to get available balance: ${error instanceof Error ? error.message : String(error)}`
         );
         // Return 0 on error to be safe
@@ -89,15 +88,15 @@ export async function displayWalletBalance(client: ClobClient): Promise<void> {
         const balance = parseClobAmount(balanceResponse.balance);
         const allowance = parseClobAmount(balanceResponse.allowance);
 
-        logger.info("═══════════════════════════════════════");
-        logger.info("💰 WALLET BALANCE & ALLOWANCE");
-        logger.info("═══════════════════════════════════════");
-        logger.info(`USDC Balance: ${balance.toFixed(6)}`);
-        logger.info(`USDC Allowance: ${allowance.toFixed(6)}`);
-        logger.info(`Available: ${balance.toFixed(6)} (Balance: ${balance.toFixed(6)}, Allowance: ${allowance.toFixed(6)})`);
-        logger.info("═══════════════════════════════════════");
+        console.log("═══════════════════════════════════════");
+        console.log("💰 WALLET BALANCE & ALLOWANCE");
+        console.log("═══════════════════════════════════════");
+        console.log(`USDC Balance: ${balance.toFixed(6)}`);
+        console.log(`USDC Allowance: ${allowance.toFixed(6)}`);
+        console.log(`Available: ${balance.toFixed(6)} (Balance: ${balance.toFixed(6)}, Allowance: ${allowance.toFixed(6)})`);
+        console.log("═══════════════════════════════════════");
     } catch (error) {
-        logger.error(`Failed to get wallet balance: ${error instanceof Error ? error.message : String(error)}`);
+        console.log(`Failed to get wallet balance: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
 
@@ -120,19 +119,19 @@ export async function validateBuyOrderBalance(
         const valid = available >= requiredAmount;
 
         if (!valid) {
-            logger.warning("═══════════════════════════════════════");
-            logger.warning("⚠️  INSUFFICIENT BALANCE/ALLOWANCE");
-            logger.warning("═══════════════════════════════════════");
-            logger.warning(`Required: ${requiredAmount.toFixed(6)} USDC`);
-            logger.warning(`Available: ${available.toFixed(6)} USDC`);
-            logger.warning(`Balance: ${balance.toFixed(6)} USDC`);
-            logger.warning(`Allowance: ${allowance.toFixed(6)} USDC`);
-            logger.warning("═══════════════════════════════════════");
+            console.log("═══════════════════════════════════════");
+            console.log("⚠️  INSUFFICIENT BALANCE/ALLOWANCE");
+            console.log("═══════════════════════════════════════");
+            console.log(`Required: ${requiredAmount.toFixed(6)} USDC`);
+            console.log(`Available: ${available.toFixed(6)} USDC`);
+            console.log(`Balance: ${balance.toFixed(6)} USDC`);
+            console.log(`Allowance: ${allowance.toFixed(6)} USDC`);
+            console.log("═══════════════════════════════════════");
         }
 
         return { valid, available, required: requiredAmount, balance, allowance };
     } catch (error) {
-        logger.error(`Failed to validate balance: ${error instanceof Error ? error.message : String(error)}`);
+        console.log(`Failed to validate balance: ${error instanceof Error ? error.message : String(error)}`);
         const available = await getAvailableBalance(client, AssetType.COLLATERAL);
         return { valid: false, available, required: requiredAmount };
     }
@@ -150,7 +149,7 @@ export async function validateSellOrderBalance(
     const valid = available >= requiredAmount;
 
     if (!valid) {
-        logger.warning(
+        console.log(
             `Insufficient token balance: Token=${tokenId.substring(0, 20)}..., Required=${requiredAmount}, Available=${available}`
         );
     }

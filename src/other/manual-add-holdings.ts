@@ -6,7 +6,6 @@
  */
 
 import { addHoldings, getAllHoldings, loadHoldings } from "../utils/holdings";
-import { logger } from "../utils/logger";
 
 // Example usage:
 // npm run manual-add-holdings
@@ -29,13 +28,13 @@ const MANUAL_HOLDINGS: Array<{
 ];
 
 async function main() {
-    logger.info("🔄 Manual Holdings Adder");
-    logger.info("=" .repeat(70));
+    console.log("🔄 Manual Holdings Adder");
+    console.log("=" .repeat(70));
     
     if (MANUAL_HOLDINGS.length === 0) {
-        logger.warning("⚠️  No holdings defined in MANUAL_HOLDINGS array");
-        logger.info("\nTo add holdings, edit this file and add entries like:");
-        logger.info(`
+        console.log("⚠️  No holdings defined in MANUAL_HOLDINGS array");
+        console.log("\nTo add holdings, edit this file and add entries like:");
+        console.log(`
 const MANUAL_HOLDINGS = [
     {
         conditionId: "0x1234...",  // Market condition ID
@@ -45,14 +44,14 @@ const MANUAL_HOLDINGS = [
     },
 ];
         `);
-        logger.info("\n💡 You can find conditionId and tokenId from:");
-        logger.info("   - Your Polymarket transaction history");
-        logger.info("   - The bot's trade logs");
-        logger.info("   - Your wallet's token holdings");
+        console.log("\n💡 You can find conditionId and tokenId from:");
+        console.log("   - Your Polymarket transaction history");
+        console.log("   - The bot's trade logs");
+        console.log("   - Your wallet's token holdings");
         return;
     }
     
-    logger.info(`\nFound ${MANUAL_HOLDINGS.length} holding(s) to add\n`);
+    console.log(`\nFound ${MANUAL_HOLDINGS.length} holding(s) to add\n`);
     
     // Show current holdings
     const current = getAllHoldings();
@@ -60,7 +59,7 @@ const MANUAL_HOLDINGS = [
         return sum + Object.keys(current[marketId] || {}).length;
     }, 0);
     
-    logger.info(`Current holdings: ${currentCount} token(s) across ${Object.keys(current).length} market(s)`);
+    console.log(`Current holdings: ${currentCount} token(s) across ${Object.keys(current).length} market(s)`);
     
     // Add each holding
     let added = 0;
@@ -76,21 +75,21 @@ const MANUAL_HOLDINGS = [
             
             if (hadBefore) {
                 updated++;
-                logger.info(`✅ Updated: ${holding.conditionId.substring(0, 10)}... -> ${holding.tokenId.substring(0, 10)}...`);
-                logger.info(`   ${beforeAmount.toFixed(2)} → ${(beforeAmount + holding.amount).toFixed(2)} tokens`);
+                console.log(`✅ Updated: ${holding.conditionId.substring(0, 10)}... -> ${holding.tokenId.substring(0, 10)}...`);
+                console.log(`   ${beforeAmount.toFixed(2)} → ${(beforeAmount + holding.amount).toFixed(2)} tokens`);
             } else {
                 added++;
-                logger.info(`✅ Added: ${holding.conditionId.substring(0, 10)}... -> ${holding.tokenId.substring(0, 10)}...`);
-                logger.info(`   ${holding.amount.toFixed(2)} tokens`);
+                console.log(`✅ Added: ${holding.conditionId.substring(0, 10)}... -> ${holding.tokenId.substring(0, 10)}...`);
+                console.log(`   ${holding.amount.toFixed(2)} tokens`);
             }
             
             if (holding.description) {
-                logger.info(`   Description: ${holding.description}`);
+                console.log(`   Description: ${holding.description}`);
             }
-            logger.info("");
+            console.log("");
         } catch (error) {
-            logger.error(`❌ Failed to add holding: ${holding.conditionId.substring(0, 10)}...`);
-            logger.error(`   Error: ${error instanceof Error ? error.message : String(error)}`);
+            console.log(`❌ Failed to add holding: ${holding.conditionId.substring(0, 10)}...`);
+            console.log(`   Error: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
     
@@ -100,27 +99,27 @@ const MANUAL_HOLDINGS = [
         return sum + Object.keys(final[marketId] || {}).length;
     }, 0);
     
-    logger.info("=" .repeat(70));
-    logger.success(`\n✅ Complete!`);
-    logger.info(`   Added: ${added} holding(s)`);
-    logger.info(`   Updated: ${updated} holding(s)`);
-    logger.info(`   Total holdings: ${finalCount} token(s) across ${Object.keys(final).length} market(s)`);
-    logger.info(`\n📁 File: src/data/token-holding.json`);
+    console.log("=" .repeat(70));
+    console.log(`\n✅ Complete!`);
+    console.log(`   Added: ${added} holding(s)`);
+    console.log(`   Updated: ${updated} holding(s)`);
+    console.log(`   Total holdings: ${finalCount} token(s) across ${Object.keys(final).length} market(s)`);
+    console.log(`\n📁 File: src/data/token-holding.json`);
     
     // Show summary
     if (Object.keys(final).length > 0) {
-        logger.info("\n📊 Current Holdings Summary:");
+        console.log("\n📊 Current Holdings Summary:");
         for (const [marketId, tokens] of Object.entries(final)) {
-            logger.info(`\n   Market: ${marketId.substring(0, 20)}...`);
+            console.log(`\n   Market: ${marketId.substring(0, 20)}...`);
             for (const [tokenId, amount] of Object.entries(tokens)) {
-                logger.info(`     Token: ${tokenId.substring(0, 20)}... → ${amount.toFixed(2)} shares`);
+                console.log(`     Token: ${tokenId.substring(0, 20)}... → ${amount.toFixed(2)} shares`);
             }
         }
     }
 }
 
 main().catch((error) => {
-    logger.error("Fatal error:", error);
+    console.log("Fatal error:", error);
     process.exit(1);
 });
 

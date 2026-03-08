@@ -7,7 +7,6 @@
 import { OrderType, Side, AssetType } from "@polymarket/clob-client";
 import type { ClobClient } from "@polymarket/clob-client";
 import { getClobClient } from "../providers/clobclient";
-import { logger } from "../utils/logger";
 import { env } from "../config/env";
 import { validateSellOrderBalance } from "../utils/balance";
 import { removeHoldings } from "../utils/holdings";
@@ -77,7 +76,7 @@ export function startMonitoring(tokenId: string, conditionId: string, buyPrice: 
     const windowEndMs = now + resolutionMinutes * 60 * 1000;
     const t = new Date(windowEndMs);
     monitored.set(tokenId, { conditionId, buyPrice, windowEndMs });
-    logger.info(`🛡️ Risk manager: monitoring tokenId ${tokenId.substring(0, 16)}... | ${resolutionMinutes}m from now (until ${t.getHours()}:${String(t.getMinutes()).padStart(2, "0")}) | buy: ${buyPrice} | sell if < ${env.SELL_PRICE}`);
+    console.log(`🛡️ Risk manager: monitoring tokenId ${tokenId.substring(0, 16)}... | ${resolutionMinutes}m from now (until ${t.getHours()}:${String(t.getMinutes()).padStart(2, "0")}) | buy: ${buyPrice} | sell if < ${env.SELL_PRICE}`);
     logToFile(`RISK: Start monitoring tokenId ${tokenId.substring(0, 20)}... buyPrice=${buyPrice} SELL_PRICE=${env.SELL_PRICE} resolution=${resolutionMinutes}m`);
 }
 
@@ -125,16 +124,16 @@ async function sellToken(client: ClobClient, tokenId: string, conditionId: strin
                 } catch (e) {
                     logToFile(`RISK HOLDINGS: ${e instanceof Error ? e.message : String(e)}`);
                 }
-                logger.success(`🛡️ Risk sell: tokenId ${tokenId.substring(0, 14)}... (${tokensSold.toFixed(2)} shares) [attempt ${attempt}]`);
+                console.log(`🛡️ Risk sell: tokenId ${tokenId.substring(0, 14)}... (${tokensSold.toFixed(2)} shares) [attempt ${attempt}]`);
                 logToFile(`RISK SELL: tokenId ${tokenId.substring(0, 18)}... (one buy+sell per market)`);
                 return true;
             }
             const errMsg = response?.data?.error ?? response?.error ?? rawStatus ?? "unknown";
-            logger.warning(`🛡️ Risk sell attempt ${attempt}/${RISK_SELL_MAX_ATTEMPTS}: not filled status=${rawStatus ?? "null"}`);
+            console.log(`🛡️ Risk sell attempt ${attempt}/${RISK_SELL_MAX_ATTEMPTS}: not filled status=${rawStatus ?? "null"}`);
             logToFile(`RISK SELL RETRY: attempt ${attempt} tokenId ${tokenId.substring(0, 18)}... error=${String(errMsg).slice(0, 80)}`);
         } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
-            logger.warning(`🛡️ Risk sell attempt ${attempt}/${RISK_SELL_MAX_ATTEMPTS} failed: ${msg.substring(0, 60)}`);
+            console.log(`🛡️ Risk sell attempt ${attempt}/${RISK_SELL_MAX_ATTEMPTS} failed: ${msg.substring(0, 60)}`);
             logToFile(`RISK SELL RETRY: attempt ${attempt} tokenId ${tokenId.substring(0, 18)}... ${msg}`);
         }
         if (attempt < RISK_SELL_MAX_ATTEMPTS) {
@@ -142,7 +141,7 @@ async function sellToken(client: ClobClient, tokenId: string, conditionId: strin
             await new Promise((r) => setTimeout(r, delayMs));
         }
     }
-    logger.warning(`Risk sell gave up after ${RISK_SELL_MAX_ATTEMPTS} attempts for ${tokenId.substring(0, 14)}...`);
+    console.log(`Risk sell gave up after ${RISK_SELL_MAX_ATTEMPTS} attempts for ${tokenId.substring(0, 14)}...`);
     logToFile(`RISK SELL GAVE UP: tokenId ${tokenId.substring(0, 18)}... after ${RISK_SELL_MAX_ATTEMPTS} attempts`);
     return false;
 }
@@ -187,7 +186,7 @@ export async function runRiskCheck(): Promise<void> {
         const toRemove: string[] = [];
         for (const [tokenId, { windowEndMs }] of monitored.entries()) {
             if (now >= windowEndMs) {
-                logger.info(`🛡️ Risk manager: window ended for tokenId ${tokenId.substring(0, 16)}...`);
+                console.log(`🛡️ Risk manager: window ended for tokenId ${tokenId.substring(0, 16)}...`);
                 toRemove.push(tokenId);
             }
         }
@@ -208,23 +207,23 @@ export async function runRiskCheck(): Promise<void> {
                 const price = parsePrice(priceResp);
                 if (price === null) {
                     const raw = typeof priceResp === "object" && priceResp !== null ? JSON.stringify(priceResp).slice(0, 120) : String(priceResp).slice(0, 80);
-                    logger.warning(`🛡️ Risk manager: could not get price for tokenId ${tokenId.substring(0, 16)}... (response: ${raw})`);
+                    console.log(`🛡️ Risk manager: could not get price for tokenId ${tokenId.substring(0, 16)}... (response: ${raw})`);
                     toRemovePrice.push(tokenId);
                     continue;
                 }
-                logger.info(`🛡️ Risk manager: tokenId ${tokenId.substring(0, 16)}... | buy: ${buyPrice} | current: ${price} | sell if < ${env.SELL_PRICE} or >= ${env.PROFIT_SELL_THRESHOLD}`);
+                console.log(`🛡️ Risk manager: tokenId ${tokenId.substring(0, 16)}... | buy: ${buyPrice} | current: ${price} | sell if < ${env.SELL_PRICE} or >= ${env.PROFIT_SELL_THRESHOLD}`);
                 if (price >= env.PROFIT_SELL_THRESHOLD) {
-                    logger.warning(`🛡️ Risk manager: price ${price} >= ${env.PROFIT_SELL_THRESHOLD} (profit cap) → selling immediately`);
+                    console.log(`🛡️ Risk manager: price ${price} >= ${env.PROFIT_SELL_THRESHOLD} (profit cap) → selling immediately`);
                     const sold = await sellToken(client, tokenId, conditionId, price);
                     toRemovePrice.push(tokenId);
                 } else if (price < env.SELL_PRICE) {
-                    logger.warning(`🛡️ Risk manager: price ${price} < ${env.SELL_PRICE} → selling`);
+                    console.log(`🛡️ Risk manager: price ${price} < ${env.SELL_PRICE} → selling`);
                     const sold = await sellToken(client, tokenId, conditionId, price);
                     toRemovePrice.push(tokenId);
                 }
             } catch (e) {
                 const msg = e instanceof Error ? e.message : String(e);
-                logger.warning(`🛡️ Risk manager: getPrice/sell failed for ${tokenId.substring(0, 16)}...: ${msg.substring(0, 50)}`);
+                console.log(`🛡️ Risk manager: getPrice/sell failed for ${tokenId.substring(0, 16)}...: ${msg.substring(0, 50)}`);
                 toRemovePrice.push(tokenId);
             }
         }

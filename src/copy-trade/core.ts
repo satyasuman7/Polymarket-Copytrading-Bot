@@ -8,7 +8,6 @@ import { writeFileSync, appendFileSync, existsSync, mkdirSync, readFileSync } fr
 import { OrderType, Side, AssetType } from "@polymarket/clob-client";
 import type { ClobClient } from "@polymarket/clob-client";
 import { getClobClient } from "../providers/clobclient";
-import { logger } from "../utils/logger";
 import { addHoldings, removeHoldings } from "../utils/holdings";
 import { displayWalletBalance, getAvailableBalance, validateSellOrderBalance } from "../utils/balance";
 import { notifyTelegramTargetTrade } from "../utils/telegram";
@@ -249,7 +248,7 @@ export function markMarketAsSold(tokenId: string): void {
     try {
         writeFileSync(SOLD_TOKEN_IDS_FILE, JSON.stringify(Array.from(soldTokenIds), null, 2));
     } catch (e) {
-        logger.error("Failed to save sold token ids", e);
+        console.log("Failed to save sold token ids", e);
     }
 }
 
@@ -272,7 +271,7 @@ function saveProcessedTrades(): void {
         writeFileSync(BOUGHT_TOKEN_IDS_FILE, JSON.stringify(Array.from(boughtTokenIds), null, 2));
         writeFileSync(SOLD_TOKEN_IDS_FILE, JSON.stringify(Array.from(soldTokenIds), null, 2));
     } catch (e) {
-        logger.error("Failed to save processed trades", e);
+        console.log("Failed to save processed trades", e);
     }
 }
 
@@ -282,7 +281,7 @@ export function loadProcessedTrades(): void {
             const data = JSON.parse(readFileSync(PROCESSED_TRADES_FILE, "utf-8"));
             if (Array.isArray(data)) {
                 processedTrades = new Set(data);
-                if (processedTrades.size > 0) logger.info(`📚 Loaded ${processedTrades.size} processed trade(s)`);
+                if (processedTrades.size > 0) console.log(`📚 Loaded ${processedTrades.size} processed trade(s)`);
             }
         } catch (_) {
             processedTrades = new Set();
@@ -293,7 +292,7 @@ export function loadProcessedTrades(): void {
             const data = JSON.parse(readFileSync(BOUGHT_TOKEN_IDS_FILE, "utf-8"));
             if (Array.isArray(data)) {
                 boughtTokenIds = new Set(data);
-                if (boughtTokenIds.size > 0) logger.info(`📊 Loaded ${boughtTokenIds.size} bought (token, wallet) key(s)`);
+                if (boughtTokenIds.size > 0) console.log(`📊 Loaded ${boughtTokenIds.size} bought (token, wallet) key(s)`);
             }
         } catch (_) {
             boughtTokenIds = new Set();
@@ -304,7 +303,7 @@ export function loadProcessedTrades(): void {
             const data = JSON.parse(readFileSync(SOLD_TOKEN_IDS_FILE, "utf-8"));
             if (Array.isArray(data)) {
                 soldTokenIds = new Set(data);
-                if (soldTokenIds.size > 0) logger.info(`🚫 Loaded ${soldTokenIds.size} sold market(s) (one buy+sell per market)`);
+                if (soldTokenIds.size > 0) console.log(`🚫 Loaded ${soldTokenIds.size} sold market(s) (one buy+sell per market)`);
             }
         } catch (_) {
             soldTokenIds = new Set();
@@ -358,7 +357,7 @@ export async function retryWithBackoff<T>(
                 errorMsg.includes("connection");
             if (!isRetryable || attempt === maxAttempts) throw error;
             const delay = delayMs * Math.pow(2, attempt - 1);
-            logger.warning(`⚠️  ${operationName} failed (attempt ${attempt}/${maxAttempts}): ${fullMsg.substring(0, 80)}`);
+            console.log(`⚠️  ${operationName} failed (attempt ${attempt}/${maxAttempts}): ${fullMsg.substring(0, 80)}`);
             await new Promise((r) => setTimeout(r, delay));
         }
     }
@@ -439,7 +438,7 @@ export async function processTrade(trade: TradeForProcess): Promise<void> {
     const t0 = Date.now();
     try {
         const client = await getClobClient();
-        logger.info(`   [perf] getClobClient: ${Date.now() - t0}ms`);
+        console.log(`   [perf] getClobClient: ${Date.now() - t0}ms`);
 
         const sourceWalletDisplay = sourceWallet ? ` [${sourceWallet.substring(0, 6)}...${sourceWallet.substring(38)}]` : "";
 
@@ -478,7 +477,7 @@ export async function processTrade(trade: TradeForProcess): Promise<void> {
                 }
             }
         } catch (_) {
-            logger.info(`SKIPPED: Could not fetch token price for BUY_THRESHOLD check`);
+            console.log(`SKIPPED: Could not fetch token price for BUY_THRESHOLD check`);
             logToFile(`SKIPPED: Could not fetch token price for BUY_THRESHOLD check`);
             tradesSkipped++;
             return;
@@ -499,15 +498,15 @@ export async function processTrade(trade: TradeForProcess): Promise<void> {
                     resolutionMinutes: resolution,
                     windowEndMs,
                 });
-                logger.info(`📋 Pending BUY: tokenId ${tokenId.substring(0, 16)}... | ${resolution}m from now (until ${t.getHours()}:${String(t.getMinutes()).padStart(2, "0")}) | price ${currentPrice ?? "?"} < ${env.BUY_THRESHOLD} → will buy when price > threshold`);
+                console.log(`📋 Pending BUY: tokenId ${tokenId.substring(0, 16)}... | ${resolution}m from now (until ${t.getHours()}:${String(t.getMinutes()).padStart(2, "0")}) | price ${currentPrice ?? "?"} < ${env.BUY_THRESHOLD} → will buy when price > threshold`);
                 logToFile(`PENDING_BUY: tokenId ${tokenId.substring(0, 20)}... price=${currentPrice} BUY_THRESHOLD=${env.BUY_THRESHOLD} resolution=${resolution}m`);
             }
             return;
         }
 
-        logger.info(`\n🟢 TRADE - BUY${sourceWalletDisplay} | ${trade.title || trade.slug} | $${amountUsdc.toFixed(2)} USDC`);
-        logger.info(`   CLOB price: ${currentPrice} (BUY_THRESHOLD: ${env.BUY_THRESHOLD})`);
-        logger.info(`   [perf] validation→ready: ${Date.now() - t0}ms`);
+        console.log(`\n🟢 TRADE - BUY${sourceWalletDisplay} | ${trade.title || trade.slug} | $${amountUsdc.toFixed(2)} USDC`);
+        console.log(`   CLOB price: ${currentPrice} (BUY_THRESHOLD: ${env.BUY_THRESHOLD})`);
+        console.log(`   [perf] validation→ready: ${Date.now() - t0}ms`);
 
         if (isTokenAlreadyBought(tokenId, sourceWallet)) {
             tradesSkipped++;
@@ -570,7 +569,7 @@ export async function processTrade(trade: TradeForProcess): Promise<void> {
                 response.status === "MATCHED" ||
                 !response.status);
 
-        logger.info(`   [perf] order placement: ${Date.now() - tOrderStart}ms`);
+        console.log(`   [perf] order placement: ${Date.now() - tOrderStart}ms`);
 
         if (isSuccess) {
             tradesDetected++;
@@ -584,7 +583,7 @@ export async function processTrade(trade: TradeForProcess): Promise<void> {
                     addHoldings(conditionId, tokenId, tokensReceived);
                 } catch (_) {}
             }
-            logger.success(`✅ BUY | ${response.orderID || "N/A"} | ${tokensReceived.toFixed(2)} tokens @ price ${price} | processTrade: ${Date.now() - t0}ms`);
+            console.log(`✅ BUY | ${response.orderID || "N/A"} | ${tokensReceived.toFixed(2)} tokens @ price ${price} | processTrade: ${Date.now() - t0}ms`);
             riskManagerStart(tokenId, conditionId, price);
         } else {
             tradesFailed++;
@@ -593,7 +592,7 @@ export async function processTrade(trade: TradeForProcess): Promise<void> {
     } catch (error) {
         tradesFailed++;
         const msg = error instanceof Error ? error.message : String(error);
-        logger.error(`❌ ${msg.substring(0, 80)}`);
+        console.log(`❌ ${msg.substring(0, 80)}`);
         logToFile(`FAILED: ${msg}`);
         if (side === "BUY") removeFromBoughtTokenIds(tokenId, sourceWallet);
     } finally {
@@ -687,7 +686,7 @@ async function executeBuyFromPending(client: ClobClient, pending: PendingBuy, cu
             try {
                 addHoldings(pending.conditionId, pending.tokenId, tokensReceived);
             } catch (_) {}
-            logger.success(`✅ Pending BUY | ${response.orderID || "N/A"} | ${tokensReceived.toFixed(2)} tokens @ ${currentPrice} (price > BUY_THRESHOLD)`);
+            console.log(`✅ Pending BUY | ${response.orderID || "N/A"} | ${tokensReceived.toFixed(2)} tokens @ ${currentPrice} (price > BUY_THRESHOLD)`);
             logToFile(`PENDING_BUY_FILLED: tokenId ${pending.tokenId.substring(0, 20)}...`);
             riskManagerStart(pending.tokenId, pending.conditionId, currentPrice, pending.resolutionMinutes);
             pendingBuys.delete(key);
@@ -696,7 +695,7 @@ async function executeBuyFromPending(client: ClobClient, pending: PendingBuy, cu
         removeFromBoughtTokenIds(pending.tokenId, pending.sourceWallet);
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        logger.warning(`Pending BUY failed ${pending.tokenId.substring(0, 14)}...: ${msg.substring(0, 50)}`);
+        console.log(`Pending BUY failed ${pending.tokenId.substring(0, 14)}...: ${msg.substring(0, 50)}`);
         logToFile(`PENDING_BUY_FAILED: ${pending.tokenId.substring(0, 20)}... ${msg}`);
         removeFromBoughtTokenIds(pending.tokenId, pending.sourceWallet);
     } finally {
@@ -720,7 +719,7 @@ export async function runPendingBuyCheck(): Promise<void> {
         const toRemove: string[] = [];
         for (const [key, pending] of pendingBuys.entries()) {
             if (now >= pending.windowEndMs) {
-                logger.info(`📋 Pending BUY monitor: ${pending.resolutionMinutes}m window ended for tokenId ${pending.tokenId.substring(0, 16)}...`);
+                console.log(`📋 Pending BUY monitor: ${pending.resolutionMinutes}m window ended for tokenId ${pending.tokenId.substring(0, 16)}...`);
                 toRemove.push(key);
                 continue;
             }
@@ -731,14 +730,14 @@ export async function runPendingBuyCheck(): Promise<void> {
                 const priceResp = await client.getPrice(pending.tokenId, "BUY");
                 const price = parsePriceFromResponse(priceResp);
                 if (price === null) continue;
-                logger.info(`📋 Pending BUY monitor: tokenId ${pending.tokenId.substring(0, 16)}... | price: ${price} | buy threshold: ${env.BUY_THRESHOLD} | time: ${(elapsedMs / 1000).toFixed(0)}s / ${env.PENDING_BUY_TIME_THRESHOLD_SECONDS}s (${pending.resolutionMinutes}m window)`);
+                console.log(`📋 Pending BUY monitor: tokenId ${pending.tokenId.substring(0, 16)}... | price: ${price} | buy threshold: ${env.BUY_THRESHOLD} | time: ${(elapsedMs / 1000).toFixed(0)}s / ${env.PENDING_BUY_TIME_THRESHOLD_SECONDS}s (${pending.resolutionMinutes}m window)`);
                 if (price > env.BUY_THRESHOLD && timeThresholdPassed) {
-                    logger.info(`🟢 Pending BUY trigger: tokenId ${pending.tokenId.substring(0, 16)}... price ${price} > ${env.BUY_THRESHOLD} and time >= ${env.PENDING_BUY_TIME_THRESHOLD_SECONDS}s`);
+                    console.log(`🟢 Pending BUY trigger: tokenId ${pending.tokenId.substring(0, 16)}... price ${price} > ${env.BUY_THRESHOLD} and time >= ${env.PENDING_BUY_TIME_THRESHOLD_SECONDS}s`);
                     const done = await executeBuyFromPending(client, pending, price);
                     if (done) toRemove.push(key);
                 } else if (price > env.BUY_THRESHOLD && !timeThresholdPassed) {
                     const waitSec = Math.ceil((timeThresholdMs - elapsedMs) / 1000);
-                    logger.info(`📋 Pending BUY: price OK, wait ${waitSec}s more (${(elapsedMs / 1000).toFixed(0)}s since previous ${pending.resolutionMinutes}m mark)`);
+                    console.log(`📋 Pending BUY: price OK, wait ${waitSec}s more (${(elapsedMs / 1000).toFixed(0)}s since previous ${pending.resolutionMinutes}m mark)`);
                 }
             } catch (_) {
                 // skip this pending item this tick
