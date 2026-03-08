@@ -6,7 +6,8 @@ import { JsonRpcProvider } from "@ethersproject/providers";
 import { Contract } from "@ethersproject/contracts";
 import { Chain, AssetType, ClobClient } from "@polymarket/clob-client";
 import { getContractConfig } from "@polymarket/clob-client";
-import { config } from "../utils/config";
+import { logger } from "../utils/logger";
+import { env, getRpcUrl } from "../config/env";
 
 // Minimal USDC ERC20 ABI
 const USDC_ABI = [
@@ -20,36 +21,29 @@ const CTF_ABI = [
     "function isApprovedForAll(address account, address operator) external view returns (bool)",
 ];
 
-/**
- * Get RPC provider URL based on chain ID
- */
-function getRpcUrl(chainId: number): string {
-    return config.rpc.getUrl(chainId);
-}
 
 /**
  * Approve USDC to Polymarket contracts (maximum allowance)
  * Approves USDC for both ConditionalTokens and Exchange contracts
  */
 export async function approveUSDCAllowance(): Promise<void> {
-    const privateKey = process.env.PRIVATE_KEY;
+    const privateKey = env.PRIVATE_KEY;
     if (!privateKey) {
         throw new Error("PRIVATE_KEY not found in environment");
     }
 
-    const chainId = parseInt(`${process.env.CHAIN_ID || Chain.POLYGON}`) as Chain;
+    const chainId = env.CHAIN_ID as Chain;
     const contractConfig = getContractConfig(chainId);
     
-    // Get RPC URL and create provider
     const rpcUrl = getRpcUrl(chainId);
     const provider = new JsonRpcProvider(rpcUrl);
     const wallet = new Wallet(privateKey, provider);
     
     const address = await wallet.getAddress();
-    console.log(`[INFO] Approving USDC allowances for address: ${address}, chainId: ${chainId}`);
-    console.log(`[INFO] USDC Contract: ${contractConfig.collateral}`);
-    console.log(`[INFO] ConditionalTokens Contract: ${contractConfig.conditionalTokens}`);
-    console.log(`[INFO] Exchange Contract: ${contractConfig.exchange}`);
+    logger.info(`Approving USDC allowances for address: ${address}, chainId: ${chainId}`);
+    logger.info(`USDC Contract: ${contractConfig.collateral}`);
+    logger.info(`ConditionalTokens Contract: ${contractConfig.conditionalTokens}`);
+    logger.info(`Exchange Contract: ${contractConfig.exchange}`);
 
     // Create USDC contract instance
     const usdcContract = new Contract(contractConfig.collateral, USDC_ABI, wallet);
@@ -63,7 +57,7 @@ export async function approveUSDCAllowance(): Promise<void> {
             gasLimit: 200_000,
         };
     } catch (error) {
-        console.log("[WARNING] Could not fetch gas price, using fallback");
+        logger.warning("Could not fetch gas price, using fallback");
         gasOptions = {
             gasPrice: parseUnits("100", "gwei"),
             gasLimit: 200_000,
@@ -73,25 +67,25 @@ export async function approveUSDCAllowance(): Promise<void> {
     // Check and approve USDC for ConditionalTokens contract
     const ctfAllowance = await usdcContract.allowance(address, contractConfig.conditionalTokens);
     if (!ctfAllowance.eq(MaxUint256)) {
-        console.log(`[INFO] Current CTF allowance: ${ctfAllowance.toString()}, setting to MaxUint256...`);
+        logger.info(`Current CTF allowance: ${ctfAllowance.toString()}, setting to MaxUint256...`);
         const tx = await usdcContract.approve(contractConfig.conditionalTokens, MaxUint256, gasOptions);
-        console.log(`[INFO] Transaction hash: ${tx.hash}`);
+        logger.info(`Transaction hash: ${tx.hash}`);
         await tx.wait();
-        console.log(`[SUCCESS] ✅ USDC approved for ConditionalTokens contract`);
+        logger.success("✅ USDC approved for ConditionalTokens contract");
     } else {
-        console.log(`[INFO] ✅ USDC already approved for ConditionalTokens contract (MaxUint256)`);
+        logger.info("✅ USDC already approved for ConditionalTokens contract (MaxUint256)");
     }
 
     // Check and approve USDC for Exchange contract
     const exchangeAllowance = await usdcContract.allowance(address, contractConfig.exchange);
     if (!exchangeAllowance.eq(MaxUint256)) {
-        console.log(`[INFO] Current Exchange allowance: ${exchangeAllowance.toString()}, setting to MaxUint256...`);
+        logger.info(`Current Exchange allowance: ${exchangeAllowance.toString()}, setting to MaxUint256...`);
         const tx = await usdcContract.approve(contractConfig.exchange, MaxUint256, gasOptions);
-        console.log(`[INFO] Transaction hash: ${tx.hash}`);
+        logger.info(`Transaction hash: ${tx.hash}`);
         await tx.wait();
-        console.log(`[SUCCESS] ✅ USDC approved for Exchange contract`);
+        logger.success("✅ USDC approved for Exchange contract");
     } else {
-        console.log(`[INFO] ✅ USDC already approved for Exchange contract (MaxUint256)`);
+        logger.info("✅ USDC already approved for Exchange contract (MaxUint256)");
     }
 
     // Check and approve ConditionalTokens (ERC1155) for Exchange contract
@@ -99,60 +93,59 @@ export async function approveUSDCAllowance(): Promise<void> {
     const isApproved = await ctfContract.isApprovedForAll(address, contractConfig.exchange);
     
     if (!isApproved) {
-        console.log(`[INFO] Approving ConditionalTokens for Exchange contract...`);
+        logger.info("Approving ConditionalTokens for Exchange contract...");
         const tx = await ctfContract.setApprovalForAll(contractConfig.exchange, true, gasOptions);
-        console.log(`[INFO] Transaction hash: ${tx.hash}`);
+        logger.info(`Transaction hash: ${tx.hash}`);
         await tx.wait();
-        console.log(`[SUCCESS] ✅ ConditionalTokens approved for Exchange contract`);
+        logger.success("✅ ConditionalTokens approved for Exchange contract");
     } else {
-        console.log(`[INFO] ✅ ConditionalTokens already approved for Exchange contract`);
+        logger.info("✅ ConditionalTokens already approved for Exchange contract");
     }
 
-    // If negRisk is enabled, also approve for negRisk contracts
-    const negRisk = process.env.NEG_RISK === "true";
+    const negRisk = env.NEG_RISK;
     if (negRisk) {
         // Approve USDC for NegRiskAdapter
         const negRiskAdapterAllowance = await usdcContract.allowance(address, contractConfig.negRiskAdapter);
         if (!negRiskAdapterAllowance.eq(MaxUint256)) {
-            console.log(`[INFO] Current NegRiskAdapter allowance: ${negRiskAdapterAllowance.toString()}, setting to MaxUint256...`);
+            logger.info(`Current NegRiskAdapter allowance: ${negRiskAdapterAllowance.toString()}, setting to MaxUint256...`);
             const tx = await usdcContract.approve(contractConfig.negRiskAdapter, MaxUint256, gasOptions);
-            console.log(`[INFO] Transaction hash: ${tx.hash}`);
+            logger.info(`Transaction hash: ${tx.hash}`);
             await tx.wait();
-            console.log(`[SUCCESS] ✅ USDC approved for NegRiskAdapter`);
+            logger.success("✅ USDC approved for NegRiskAdapter");
         }
 
         // Approve USDC for NegRiskExchange
         const negRiskExchangeAllowance = await usdcContract.allowance(address, contractConfig.negRiskExchange);
         if (!negRiskExchangeAllowance.eq(MaxUint256)) {
-            console.log(`[INFO] Current NegRiskExchange allowance: ${negRiskExchangeAllowance.toString()}, setting to MaxUint256...`);
+            logger.info(`Current NegRiskExchange allowance: ${negRiskExchangeAllowance.toString()}, setting to MaxUint256...`);
             const tx = await usdcContract.approve(contractConfig.negRiskExchange, MaxUint256, gasOptions);
-            console.log(`[INFO] Transaction hash: ${tx.hash}`);
+            logger.info(`Transaction hash: ${tx.hash}`);
             await tx.wait();
-            console.log(`[SUCCESS] ✅ USDC approved for NegRiskExchange`);
+            logger.success("✅ USDC approved for NegRiskExchange");
         }
 
         // Approve ConditionalTokens for NegRiskExchange
         const isNegRiskApproved = await ctfContract.isApprovedForAll(address, contractConfig.negRiskExchange);
         if (!isNegRiskApproved) {
-            console.log(`[INFO] Approving ConditionalTokens for NegRiskExchange...`);
+            logger.info("Approving ConditionalTokens for NegRiskExchange...");
             const tx = await ctfContract.setApprovalForAll(contractConfig.negRiskExchange, true, gasOptions);
-            console.log(`[INFO] Transaction hash: ${tx.hash}`);
+            logger.info(`Transaction hash: ${tx.hash}`);
             await tx.wait();
-            console.log(`[SUCCESS] ✅ ConditionalTokens approved for NegRiskExchange`);
+            logger.success("✅ ConditionalTokens approved for NegRiskExchange");
         }
 
         // Approve ConditionalTokens for NegRiskAdapter
         const isNegRiskAdapterApproved = await ctfContract.isApprovedForAll(address, contractConfig.negRiskAdapter);
         if (!isNegRiskAdapterApproved) {
-            console.log(`[INFO] Approving ConditionalTokens for NegRiskAdapter...`);
+            logger.info("Approving ConditionalTokens for NegRiskAdapter...");
             const tx = await ctfContract.setApprovalForAll(contractConfig.negRiskAdapter, true, gasOptions);
-            console.log(`[INFO] Transaction hash: ${tx.hash}`);
+            logger.info(`Transaction hash: ${tx.hash}`);
             await tx.wait();
-            console.log(`[SUCCESS] ✅ ConditionalTokens approved for NegRiskAdapter`);
+            logger.success("✅ ConditionalTokens approved for NegRiskAdapter");
         }
     }
 
-    console.log(`[SUCCESS] All allowances approved successfully!`);
+    logger.success("All allowances approved successfully!");
 }
 
 /**
@@ -161,11 +154,11 @@ export async function approveUSDCAllowance(): Promise<void> {
  */
 export async function updateClobBalanceAllowance(client: ClobClient): Promise<void> {
     try {
-        console.log(`[INFO] Updating CLOB API balance allowance for USDC...`);
+        logger.info("Updating CLOB API balance allowance for USDC...");
         await client.updateBalanceAllowance({ asset_type: AssetType.COLLATERAL });
-        console.log(`[SUCCESS] ✅ CLOB API balance allowance updated for USDC`);
+        logger.success("✅ CLOB API balance allowance updated for USDC");
     } catch (error) {
-        console.log(`[ERROR] Failed to update CLOB balance allowance: ${error instanceof Error ? error.message : String(error)}`);
+        logger.error(`Failed to update CLOB balance allowance: ${error instanceof Error ? error.message : String(error)}`);
         throw error;
     }
 }
@@ -176,15 +169,14 @@ export async function updateClobBalanceAllowance(client: ClobClient): Promise<vo
  * Note: ERC1155 uses setApprovalForAll which approves all tokens at once (including newly bought ones)
  */
 export async function approveTokensAfterBuy(): Promise<void> {
-    const privateKey = process.env.PRIVATE_KEY;
+    const privateKey = env.PRIVATE_KEY;
     if (!privateKey) {
         throw new Error("PRIVATE_KEY not found in environment");
     }
 
-    const chainId = parseInt(`${process.env.CHAIN_ID || Chain.POLYGON}`) as Chain;
+    const chainId = env.CHAIN_ID as Chain;
     const contractConfig = getContractConfig(chainId);
     
-    // Get RPC URL and create provider
     const rpcUrl = getRpcUrl(chainId);
     const provider = new JsonRpcProvider(rpcUrl);
     const wallet = new Wallet(privateKey, provider);
@@ -211,23 +203,21 @@ export async function approveTokensAfterBuy(): Promise<void> {
     const isApproved = await ctfContract.isApprovedForAll(address, contractConfig.exchange);
     
     if (!isApproved) {
-        console.log(`[INFO] Approving ConditionalTokens for Exchange (after buy)...`);
+        logger.info("Approving ConditionalTokens for Exchange (after buy)...");
         const tx = await ctfContract.setApprovalForAll(contractConfig.exchange, true, gasOptions);
-        console.log(`[INFO] Transaction hash: ${tx.hash}`);
+        logger.info(`Transaction hash: ${tx.hash}`);
         await tx.wait();
-        console.log(`[SUCCESS] ✅ ConditionalTokens approved for Exchange`);
+        logger.success("✅ ConditionalTokens approved for Exchange");
     }
 
-    // If negRisk is enabled, also check negRisk contracts
-    const negRisk = process.env.NEG_RISK === "true";
-    if (negRisk) {
+    if (env.NEG_RISK) {
         const isNegRiskApproved = await ctfContract.isApprovedForAll(address, contractConfig.negRiskExchange);
         if (!isNegRiskApproved) {
-            console.log(`[INFO] Approving ConditionalTokens for NegRiskExchange (after buy)...`);
+            logger.info("Approving ConditionalTokens for NegRiskExchange (after buy)...");
             const tx = await ctfContract.setApprovalForAll(contractConfig.negRiskExchange, true, gasOptions);
-            console.log(`[INFO] Transaction hash: ${tx.hash}`);
+            logger.info(`Transaction hash: ${tx.hash}`);
             await tx.wait();
-            console.log(`[SUCCESS] ✅ ConditionalTokens approved for NegRiskExchange`);
+            logger.success("✅ ConditionalTokens approved for NegRiskExchange");
         }
     }
 }

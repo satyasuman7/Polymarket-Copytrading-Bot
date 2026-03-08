@@ -23,6 +23,18 @@ export interface CopyTradeOptions {
     maxAmount?: number;
     
     /**
+     * Fixed token amount for BUY (overrides sizeMultiplier/maxAmount when set).
+     * USDC amount = trade.price * orderSizeTokens.
+     */
+    orderSizeTokens?: number;
+    
+    /**
+     * Fixed USDC amount for BUY (fast path, no price calc).
+     * Overrides orderSizeTokens when set.
+     */
+    orderAmountUsdc?: number;
+    
+    /**
      * Order type for market orders (default: FAK)
      */
     orderType?: OrderType.FOK | OrderType.FAK;

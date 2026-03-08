@@ -1,30 +1,37 @@
 {
-  "name": "polymarket-copytrading-bot",
+  "name": "polymarket-copytrading",
   "version": "1.0.0",
-  "main": "dist/index.js",
+  "description": "A sophisticated, production-ready copy trading bot for Polymarket that automatically mirrors trades from target wallets in real-time. Built with TypeScript, leveraging WebSocket connections for low-latency trade execution and integrated with Polymarket's CLOB (Central Limit Order Book) API.",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
   "scripts": {
     "start": "ts-node src/index.ts",
-    "redeem": "ts-node src/redeem.ts",
-    "auto-redeem": "ts-node src/auto-redeem.ts",
-    "build": "tsc",
+    "copytrade": "ts-node src/copytrade-api.ts",
+    "monitor": "ts-node src/other/monitor-wallet.ts",
+    "balance": "ts-node src/other/wallet-balance.ts",
+    "auto-redeem": "ts-node src/auto-redeem-copytrade.ts",
+    "clear-history": "ts-node src/clear-history.ts",
+    "redeem": "ts-node src/other/redeem.ts",
+    "manual-add-holdings": "ts-node src/manual-add-holdings.ts",
+    "sync-holdings": "ts-node src/sync-holdings-from-wallet.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": ["polymarket", "copytrading", "trading-bot"],
-  "author": "",
-  "license": "ISC",
-  "description": "Production-grade Polymarket copy trading bot with fixes and improvements",
-  "devDependencies": {
-    "@types/node": "^24.10.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@ethersproject/wallet": "^5.8.0",
     "@polymarket/clob-client": "^4.22.8",
     "@polymarket/real-time-data-client": "^1.4.0",
-    "pino-logger-utils": "^1.0.0",
+    "@safe-global/protocol-kit": "^6.1.2",
+    "@safe-global/types-kit": "^3.0.0",
     "chalk": "^5.6.2",
     "dotenv": "^17.2.3",
     "ethers": "^6.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }

@@ -1,5 +1,6 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
+import { logger } from "./logger";
 
 /**
  * Holdings structure: market_id (conditionId) -> { token_id: amount }
@@ -11,6 +12,19 @@ export interface TokenHoldings {
 }
 
 const HOLDINGS_FILE = resolve(process.cwd(), "src/data/token-holding.json");
+const LOG_DIR = resolve(process.cwd(), "log");
+const HOLDINGS_LOG_FILE = resolve(LOG_DIR, "holdings-redeem.log");
+
+function ensureLogDir(): void {
+    if (!existsSync(LOG_DIR)) mkdirSync(LOG_DIR, { recursive: true });
+}
+
+function logToHoldingsFile(line: string): void {
+    try {
+        ensureLogDir();
+        appendFileSync(HOLDINGS_LOG_FILE, `[${new Date().toISOString()}] ${line}\n`);
+    } catch (_) {}
+}
 
 /**
  * Load holdings from file
@@ -24,25 +38,19 @@ export function loadHoldings(): TokenHoldings {
         const content = readFileSync(HOLDINGS_FILE, "utf-8");
         return JSON.parse(content) as TokenHoldings;
     } catch (error) {
-        console.log("[ERROR] Failed to load holdings", error);
+        logger.error("Failed to load holdings", error);
         return {};
     }
 }
 
 /**
  * Save holdings to file
- * FIXED: Creates data directory if it doesn't exist
  */
 export function saveHoldings(holdings: TokenHoldings): void {
     try {
-        // Ensure data directory exists
-        const dataDir = resolve(process.cwd(), "src/data");
-        if (!existsSync(dataDir)) {
-            mkdirSync(dataDir, { recursive: true });
-        }
         writeFileSync(HOLDINGS_FILE, JSON.stringify(holdings, null, 2));
     } catch (error) {
-        console.log("[ERROR] Failed to save holdings", error);
+        logger.error("Failed to save holdings", error);
     }
 }
 
@@ -63,7 +71,8 @@ export function addHoldings(marketId: string, tokenId: string, amount: number): 
     holdings[marketId][tokenId] += amount;
     
     saveHoldings(holdings);
-    console.log(`[INFO] Added ${amount} tokens to holdings: ${marketId} -> ${tokenId}`);
+    logToHoldingsFile(`HOLDINGS_ADD conditionId=${marketId} tokenId=${tokenId} amount=${amount}`);
+    logger.info(`Added ${amount} tokens to holdings: ${marketId} -> ${tokenId}`);
 }
 
 /**
@@ -81,7 +90,7 @@ export function removeHoldings(marketId: string, tokenId: string, amount: number
     const holdings = loadHoldings();
     
     if (!holdings[marketId] || !holdings[marketId][tokenId]) {
-        console.log(`[WARNING] No holdings found for ${marketId} -> ${tokenId}`);
+        logger.warning(`No holdings found for ${marketId} -> ${tokenId}`);
         return;
     }
     
@@ -99,7 +108,7 @@ export function removeHoldings(marketId: string, tokenId: string, amount: number
     }
     
     saveHoldings(holdings);
-    console.log(`[INFO] Removed ${amount} tokens from holdings: ${marketId} -> ${tokenId} (remaining: ${newAmount})`);
+    logger.info(`Removed ${amount} tokens from holdings: ${marketId} -> ${tokenId} (remaining: ${newAmount})`);
 }
 
 /**
@@ -123,11 +132,13 @@ export function getAllHoldings(): TokenHoldings {
 export function clearMarketHoldings(marketId: string): void {
     const holdings = loadHoldings();
     if (holdings[marketId]) {
+        const tokenIds = Object.keys(holdings[marketId]);
+        logToHoldingsFile(`HOLDINGS_CLEAR conditionId=${marketId} tokenIds=${tokenIds.join(",")}`);
         delete holdings[marketId];
         saveHoldings(holdings);
-        console.log(`[INFO] Cleared holdings for market: ${marketId}`);
+        logger.info(`Cleared holdings for market: ${marketId}`);
     } else {
-        console.log(`[WARNING] No holdings found for market: ${marketId}`);
+        logger.warning(`No holdings found for market: ${marketId}`);
     }
 }
 
@@ -136,6 +147,6 @@ export function clearMarketHoldings(marketId: string): void {
  */
 export function clearHoldings(): void {
     saveHoldings({});
-    console.log("[INFO] All holdings cleared");
+    logger.info("All holdings cleared");
 }
 
