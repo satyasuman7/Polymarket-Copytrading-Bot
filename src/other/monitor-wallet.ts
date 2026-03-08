@@ -17,7 +17,6 @@ import { resolve } from "path";
 import { writeFileSync, appendFileSync, existsSync, mkdirSync } from "fs";
 import { RealTimeDataClient } from "@polymarket/real-time-data-client";
 import type { Message } from "@polymarket/real-time-data-client";
-import { logger } from "../utils/logger";
 import type { TradePayload } from "../utils/types";
 import { env } from "../config/env";
 
@@ -101,50 +100,50 @@ function displayTrade(trade: TradePayload) {
     // Log to file
     logTradeToFile(trade, tradesDetected);
     
-    logger.info("\n" + "═".repeat(70));
-    logger.warning(`${sideEmoji} TRADE #${tradesDetected} DETECTED FROM TARGET WALLET`);
-    logger.info("═".repeat(70));
+    console.log("\n" + "═".repeat(70));
+    console.log(`${sideEmoji} TRADE #${tradesDetected} DETECTED FROM TARGET WALLET`);
+    console.log("═".repeat(70));
     
     // Market Information
-    logger.info("📊 MARKET INFORMATION:");
-    logger.info(`   Title: ${trade.title || "N/A"}`);
-    logger.info(`   Slug: ${trade.slug || "N/A"}`);
-    logger.info(`   Outcome: ${trade.outcome || "N/A"}`);
+    console.log("📊 MARKET INFORMATION:");
+    console.log(`   Title: ${trade.title || "N/A"}`);
+    console.log(`   Slug: ${trade.slug || "N/A"}`);
+    console.log(`   Outcome: ${trade.outcome || "N/A"}`);
     if (trade.eventSlug) {
-        logger.info(`   Event: ${trade.eventSlug}`);
+        console.log(`   Event: ${trade.eventSlug}`);
     }
     
     // Trade Details
-    logger.info("\n💰 TRADE DETAILS:");
-    logger.info(`   Side: ${side} ${sideEmoji}`);
-    logger.info(`   Price: $${trade.price.toFixed(4)}`);
-    logger.info(`   Size: ${trade.size.toFixed(2)} tokens`);
+    console.log("\n💰 TRADE DETAILS:");
+    console.log(`   Side: ${side} ${sideEmoji}`);
+    console.log(`   Price: $${trade.price.toFixed(4)}`);
+    console.log(`   Size: ${trade.size.toFixed(2)} tokens`);
     
     if (side === "BUY") {
         const totalCost = trade.price * trade.size;
-        logger.info(`   Total Cost: $${totalCost.toFixed(2)} USDC`);
+        console.log(`   Total Cost: $${totalCost.toFixed(2)} USDC`);
     } else {
         const totalReceived = trade.price * trade.size;
-        logger.info(`   Total Received: $${totalReceived.toFixed(2)} USDC`);
+        console.log(`   Total Received: $${totalReceived.toFixed(2)} USDC`);
     }
     
     // Token Information
-    logger.info("\n🎫 TOKEN INFORMATION:");
-    logger.info(`   Token ID: ${trade.asset}`);
-    logger.info(`   Condition ID: ${trade.conditionId}`);
-    logger.info(`   Outcome Index: ${trade.outcomeIndex}`);
+    console.log("\n🎫 TOKEN INFORMATION:");
+    console.log(`   Token ID: ${trade.asset}`);
+    console.log(`   Condition ID: ${trade.conditionId}`);
+    console.log(`   Outcome Index: ${trade.outcomeIndex}`);
     
     // Transaction Details
-    logger.info("\n⛓️  BLOCKCHAIN:");
-    logger.info(`   Transaction: ${trade.transactionHash}`);
-    logger.info(`   Time: ${timestamp}`);
-    logger.info(`   View: https://polygonscan.com/tx/${trade.transactionHash}`);
+    console.log("\n⛓️  BLOCKCHAIN:");
+    console.log(`   Transaction: ${trade.transactionHash}`);
+    console.log(`   Time: ${timestamp}`);
+    console.log(`   View: https://polygonscan.com/tx/${trade.transactionHash}`);
     
     // Summary
     const action = side === "BUY" ? "bought" : "sold";
-    logger.success(`\n📌 SUMMARY: Target wallet ${action} ${trade.size.toFixed(2)} tokens of "${trade.outcome}" at $${trade.price.toFixed(4)} each`);
-    logger.info(`💾 Logged to: ${LOG_FILE}`);
-    logger.info("═".repeat(70) + "\n");
+    console.log(`\n📌 SUMMARY: Target wallet ${action} ${trade.size.toFixed(2)} tokens of "${trade.outcome}" at $${trade.price.toFixed(4)} each`);
+    console.log(`💾 Logged to: ${LOG_FILE}`);
+    console.log("═".repeat(70) + "\n");
 }
 
 /**
@@ -156,47 +155,47 @@ function displayStats() {
     const minutes = Math.floor((uptime % 3600) / 60);
     const seconds = uptime % 60;
     
-    logger.info("\n" + "─".repeat(70));
-    logger.info("📊 MONITORING STATISTICS");
-    logger.info("─".repeat(70));
-    logger.info(`   Trades Detected: ${tradesDetected}`);
-    logger.info(`   Uptime: ${hours}h ${minutes}m ${seconds}s`);
-    logger.info(`   Target Wallet: ${TARGET_WALLET?.substring(0, 10)}...${TARGET_WALLET?.substring(TARGET_WALLET.length - 8)}`);
-    logger.info("─".repeat(70) + "\n");
+    console.log("\n" + "─".repeat(70));
+    console.log("📊 MONITORING STATISTICS");
+    console.log("─".repeat(70));
+    console.log(`   Trades Detected: ${tradesDetected}`);
+    console.log(`   Uptime: ${hours}h ${minutes}m ${seconds}s`);
+    console.log(`   Target Wallet: ${TARGET_WALLET?.substring(0, 10)}...${TARGET_WALLET?.substring(TARGET_WALLET.length - 8)}`);
+    console.log("─".repeat(70) + "\n");
 }
 
 /**
  * Main function
  */
 async function main() {
-    logger.title("👁️  POLYMARKET WALLET MONITOR");
-    logger.info("\n" + "═".repeat(70));
-    logger.info("CONFIGURATION");
-    logger.info("═".repeat(70));
+    console.log("👁️  POLYMARKET WALLET MONITOR");
+    console.log("\n" + "═".repeat(70));
+    console.log("CONFIGURATION");
+    console.log("═".repeat(70));
     
     // Validate configuration
     if (!TARGET_WALLET) {
-        logger.error("❌ TARGET_WALLET not set in .env file");
-        logger.info("\nPlease add to .env:");
-        logger.info("  TARGET_WALLET=0x...");
+        console.log("❌ TARGET_WALLET not set in .env file");
+        console.log("\nPlease add to .env:");
+        console.log("  TARGET_WALLET=0x...");
         process.exit(1);
     }
     
-    logger.info(`Target Wallet: ${TARGET_WALLET}`);
-    logger.info(`WebSocket Host: ${WS_HOST}`);
-    logger.info(`Mode: WATCH ONLY (no trades will be executed)`);
-    logger.info(`Log File: ${LOG_FILE}`);
-    logger.info("═".repeat(70) + "\n");
+    console.log(`Target Wallet: ${TARGET_WALLET}`);
+    console.log(`WebSocket Host: ${WS_HOST}`);
+    console.log(`Mode: WATCH ONLY (no trades will be executed)`);
+    console.log(`Log File: ${LOG_FILE}`);
+    console.log("═".repeat(70) + "\n");
     
     // Connect to WebSocket
-    logger.info("🌐 Connecting to Polymarket WebSocket...\n");
+    console.log("🌐 Connecting to Polymarket WebSocket...\n");
     
     const wsClient = new RealTimeDataClient({
         host: WS_HOST,
         pingInterval: 5000,
         onConnect: (client) => {
-            logger.success("✅ Connected to WebSocket!");
-            logger.info("📡 Subscribing to trade activity feed...\n");
+            console.log("✅ Connected to WebSocket!");
+            console.log("📡 Subscribing to trade activity feed...\n");
             
             client.subscribe({
                 subscriptions: [
@@ -207,11 +206,11 @@ async function main() {
                 ]
             });
             
-            logger.success("✅ Subscribed successfully!");
-            logger.title("\n👁️  MONITORING TARGET WALLET...");
-            logger.info(`Target: ${TARGET_WALLET}\n`);
-            logger.info("⏳ Waiting for trades from target wallet...");
-            logger.info("   (Trades will appear below when detected)\n");
+            console.log("✅ Subscribed successfully!");
+            console.log("\n👁️  MONITORING TARGET WALLET...");
+            console.log(`Target: ${TARGET_WALLET}\n`);
+            console.log("⏳ Waiting for trades from target wallet...");
+            console.log("   (Trades will appear below when detected)\n");
         },
         onMessage: async (client, message: Message) => {
             // Only process trade messages
@@ -241,12 +240,12 @@ async function main() {
     setInterval(displayStats, 5 * 60 * 1000);
     
     // Keep process alive
-    logger.info("✅ Monitor is now running!");
-    logger.info("Press Ctrl+C to stop\n");
+    console.log("✅ Monitor is now running!");
+    console.log("Press Ctrl+C to stop\n");
     
     // Handle graceful shutdown
     process.on("SIGINT", () => {
-        logger.info("\n\n🛑 Stopping monitor...");
+        console.log("\n\n🛑 Stopping monitor...");
         displayStats();
         
         // Log shutdown to file
@@ -254,13 +253,13 @@ async function main() {
         logToFile("=".repeat(80) + "\n");
         
         wsClient.disconnect();
-        logger.success("✅ Monitor stopped");
-        logger.info(`📄 Log file: ${LOG_FILE}`);
+        console.log("✅ Monitor stopped");
+        console.log(`📄 Log file: ${LOG_FILE}`);
         process.exit(0);
     });
     
     process.on("SIGTERM", () => {
-        logger.info("\n\n🛑 Stopping monitor...");
+        console.log("\n\n🛑 Stopping monitor...");
         displayStats();
         
         // Log shutdown to file
@@ -268,18 +267,18 @@ async function main() {
         logToFile("=".repeat(80) + "\n");
         
         wsClient.disconnect();
-        logger.success("✅ Monitor stopped");
-        logger.info(`📄 Log file: ${LOG_FILE}`);
+        console.log("✅ Monitor stopped");
+        console.log(`📄 Log file: ${LOG_FILE}`);
         process.exit(0);
     });
 }
 
 // Run the monitor
 main().catch((error) => {
-    logger.error("\n💥 FATAL ERROR");
-    logger.error("═".repeat(70));
-    logger.error(error instanceof Error ? error.message : String(error));
-    logger.error("═".repeat(70));
+    console.log("\n💥 FATAL ERROR");
+    console.log("═".repeat(70));
+    console.log(error instanceof Error ? error.message : String(error));
+    console.log("═".repeat(70));
     process.exit(1);
 });
 

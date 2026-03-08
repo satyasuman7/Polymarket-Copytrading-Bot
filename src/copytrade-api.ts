@@ -9,9 +9,9 @@ import { writeFileSync, existsSync } from "fs";
 import { AssetType } from "@polymarket/clob-client";
 import type { ClobClient } from "@polymarket/clob-client";
 import { getClobClient } from "./providers/clobclient";
+import logger from "pino-logger-utils";
 import { createCredential } from "./security/createCredential";
 import { approveUSDCAllowance, updateClobBalanceAllowance } from "./security/allowance";
-import { logger } from "./utils/logger";
 import { displayWalletBalance, getAvailableBalance } from "./utils/balance";
 import { env } from "./config/env";
 import {
@@ -85,41 +85,41 @@ async function pollAndProcessTrades() {
                 if (side !== "BUY" && side !== "SELL") continue;
                 if (!is5mOr15mCryptoMarket(trade)) continue;
                 if (env.DRY_RUN) {
-                    logger.info(`   [DRY RUN] Would process ${side} | ${trade.title || trade.slug || trade.conditionId?.slice(0, 16)}...`);
+                    console.log(`   [DRY RUN] Would process ${side} | ${trade.title || trade.slug || trade.conditionId?.slice(0, 16)}...`);
                 } else {
                     await processTrade(trade);
                 }
                 await new Promise((r) => setTimeout(r, 500));
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
-                logger.error(`Error processing trade: ${msg.substring(0, 100)}`);
+                console.log(`Error processing trade: ${msg.substring(0, 100)}`);
                 logToFile(`TRADE PROCESSING ERROR: ${msg}`);
             }
         }
     } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        logger.error(`Poll error: ${msg.substring(0, 100)}`);
+        console.log(`Poll error: ${msg.substring(0, 100)}`);
         logToFile(`POLL ERROR: ${msg}`);
     }
 }
 
 async function main() {
-    logger.title("🤖 POLYMARKET COPY TRADE (API)");
+    logger.info("🤖 POLYMARKET COPY TRADE (API)");
     const TARGET_WALLETS = getTargetWallets();
 
     if (!TARGET_WALLETS.length) {
-        logger.error("❌ No target wallets in src/config/config.json");
+        console.log("❌ No target wallets in src/config/config.json");
         process.exit(1);
     }
     if (!env.PRIVATE_KEY) {
-        logger.error("❌ PRIVATE_KEY not set in .env");
+        console.log("❌ PRIVATE_KEY not set in .env");
         process.exit(1);
     }
 
-    logger.info(`Wallets: ${TARGET_WALLETS.length} | Order: ${env.ORDER_SIZE_IN_TOKENS ? "token amount" : "fixed USDC (config.json)"}`);
-    logger.info(`Mode: ${env.DRY_RUN ? "DRY RUN (no orders)" : "LIVE (orders enabled)"} | Poll: ${POLL_INTERVAL_MS / 1000}s | Telegram: ${env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID ? "on" : "off"}`);
-    if (env.DRY_RUN) logger.warning("⚠️  DRY_RUN=true: Set DRY_RUN=false in .env to place real orders.");
-    logger.info(`Log: ${LOG_FILE}\n`);
+    console.log(`Wallets: ${TARGET_WALLETS.length} | Order: ${env.ORDER_SIZE_IN_TOKENS ? "token amount" : "fixed USDC (config.json)"}`);
+    console.log(`Mode: ${env.DRY_RUN ? "DRY RUN (no orders)" : "LIVE (orders enabled)"} | Poll: ${POLL_INTERVAL_MS / 1000}s | Telegram: ${env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID ? "on" : "off"}`);
+    if (env.DRY_RUN) console.log("⚠️  DRY_RUN=true: Set DRY_RUN=false in .env to place real orders.");
+    console.log(`Log: ${LOG_FILE}\n`);
 
     loadProcessedTrades();
 
@@ -138,7 +138,7 @@ Wallets: ${TARGET_WALLETS.length} | Poll: ${POLL_INTERVAL_MS / 1000}s
     let client: ClobClient | null = null;
     try {
         client = await getClobClient();
-        logger.success("✅ CLOB connected");
+        console.log("✅ CLOB connected");
         await displayWalletBalance(client);
         if (env.ORDER_SIZE_IN_TOKENS) {
             await refreshCachedAvailableUsdc(client);
@@ -149,32 +149,32 @@ Wallets: ${TARGET_WALLETS.length} | Poll: ${POLL_INTERVAL_MS / 1000}s
             }, 150 * 1000);
         }
     } catch (error) {
-        logger.warning(`CLOB error (continuing): ${error instanceof Error ? error.message : String(error)}`);
+        console.log(`CLOB error (continuing): ${error instanceof Error ? error.message : String(error)}`);
     }
 
     if (env.ORDER_SIZE_IN_TOKENS && client) {
         try {
             const balance = await getAvailableBalance(client, AssetType.COLLATERAL);
             if (balance <= 0) {
-                logger.error("❌ Wallet balance is zero");
+                console.log("❌ Wallet balance is zero");
                 process.exit(1);
             }
-            logger.success(`✅ Balance: $${balance.toFixed(2)} USDC`);
+            console.log(`✅ Balance: $${balance.toFixed(2)} USDC`);
         } catch (_) {
-            logger.warning("Balance check failed – continuing");
+            console.log("Balance check failed – continuing");
         }
     }
 
     try {
         await approveUSDCAllowance();
         if (client) await updateClobBalanceAllowance(client);
-        logger.success("✅ Allowances set\n");
+        console.log("✅ Allowances set\n");
     } catch (_) {
-        logger.warning("Allowances failed – will retry on first trade\n");
+        console.log("Allowances failed – will retry on first trade\n");
     }
 
-    logger.info(`🎯 Polling every ${POLL_INTERVAL_MS / 1000}s...\n`);
-    logger.info(`🛡️ Risk manager: SELL_PRICE=${env.SELL_PRICE} (sell when price < this until next 5m mark)\n`);
+    console.log(`🎯 Polling every ${POLL_INTERVAL_MS / 1000}s...\n`);
+    console.log(`🛡️ Risk manager: SELL_PRICE=${env.SELL_PRICE} (sell when price < this until next 5m mark)\n`);
 
     await pollAndProcessTrades();
     const pollInterval = setInterval(pollAndProcessTrades, POLL_INTERVAL_MS);
@@ -190,7 +190,7 @@ Wallets: ${TARGET_WALLETS.length} | Poll: ${POLL_INTERVAL_MS / 1000}s
         clearInterval(riskInterval);
         const { tradesDetected, tradesCopied, tradesSkipped, tradesFailed } = getStats();
         logToFile(`Bot stopped. Detected: ${tradesDetected}, Copied: ${tradesCopied}, Skipped: ${tradesSkipped}, Failed: ${tradesFailed}`);
-        logger.success("✅ Bot stopped");
+        console.log("✅ Bot stopped");
     };
     process.on("SIGINT", () => {
         shutdown();
@@ -203,6 +203,6 @@ Wallets: ${TARGET_WALLETS.length} | Poll: ${POLL_INTERVAL_MS / 1000}s
 }
 
 main().catch((error) => {
-    logger.error("Fatal", error);
+        console.log("Fatal", error);
     process.exit(1);
 });

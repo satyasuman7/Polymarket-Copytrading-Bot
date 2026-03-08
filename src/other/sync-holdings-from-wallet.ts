@@ -21,7 +21,6 @@ import { formatEther } from "@ethersproject/units";
 import { hexZeroPad } from "@ethersproject/bytes";
 import { Chain, getContractConfig } from "@polymarket/clob-client";
 import { writeFileSync } from "fs";
-import { logger } from "../utils/logger";
 import { getAllHoldings, TokenHoldings } from "../utils/holdings";
 import { env, getRpcUrl } from "../config/env";
 
@@ -56,14 +55,14 @@ async function getTokensFromWallet(
     const provider = new JsonRpcProvider(rpcUrl);
     const ctfContract = new Contract(contractConfig.conditionalTokens, CTF_ABI, provider);
     
-    logger.info("🔍 Checking token balances from blockchain...");
+    console.log("🔍 Checking token balances from blockchain...");
     
     // Step 1: Check balances for conditionIds from existing holdings
     const existingHoldings = getAllHoldings();
     const knownConditionIds = Object.keys(existingHoldings);
     
     if (knownConditionIds.length > 0) {
-        logger.info(`   Checking balances for ${knownConditionIds.length} known conditionId(s)...`);
+        console.log(`   Checking balances for ${knownConditionIds.length} known conditionId(s)...`);
         
         for (const conditionId of knownConditionIds) {
             try {
@@ -100,21 +99,21 @@ async function getTokensFromWallet(
                         if (!balance.isZero()) {
                             const balanceFormatted = parseFloat(formatEther(balance));
                             holdings[conditionId][positionId.toString()] = balanceFormatted;
-                            logger.info(`   ✓ ${conditionId.substring(0, 12)}... -> ${balanceFormatted.toFixed(2)} tokens`);
+                            console.log(`   ✓ ${conditionId.substring(0, 12)}... -> ${balanceFormatted.toFixed(2)} tokens`);
                         }
                     } catch (error) {
                         continue;
                     }
                 }
             } catch (error) {
-                logger.warning(`   ⚠️  Failed to check conditionId ${conditionId.substring(0, 12)}...`);
+                console.log(`   ⚠️  Failed to check conditionId ${conditionId.substring(0, 12)}...`);
                 continue;
             }
         }
     }
     
     // Step 2: Scan transfer events to find additional tokens
-    logger.info("\n   Scanning transfer events for additional tokens...");
+    console.log("\n   Scanning transfer events for additional tokens...");
     
     try {
         const currentBlock = await provider.getBlockNumber();
@@ -123,7 +122,7 @@ async function getTokensFromWallet(
         const transferFilter = ctfContract.filters.TransferSingle(null, null, walletAddress);
         const transfers = await ctfContract.queryFilter(transferFilter, fromBlock, currentBlock);
         
-        logger.info(`   Found ${transfers.length} transfer events`);
+        console.log(`   Found ${transfers.length} transfer events`);
         
         // Extract unique position IDs
         const positionIds = new Set<string>();
@@ -133,8 +132,8 @@ async function getTokensFromWallet(
             }
         }
         
-        logger.info(`   Found ${positionIds.size} unique position IDs`);
-        logger.info(`   Checking current balances...`);
+        console.log(`   Found ${positionIds.size} unique position IDs`);
+        console.log(`   Checking current balances...`);
         
         // Check current balances and identify known vs unknown tokens
         const knownPositionIds = new Set<string>();
@@ -159,10 +158,10 @@ async function getTokensFromWallet(
             }
         }
         
-        logger.info(`   Found ${unknownTokens.length} additional token(s) with balances`);
+        console.log(`   Found ${unknownTokens.length} additional token(s) with balances`);
         
     } catch (error) {
-        logger.warning(`   Error scanning transfer events: ${error instanceof Error ? error.message : String(error)}`);
+        console.log(`   Error scanning transfer events: ${error instanceof Error ? error.message : String(error)}`);
     }
     
     return { holdings, unknownTokens };
@@ -172,8 +171,8 @@ async function getTokensFromWallet(
  * Compare wallet holdings with existing token-holding.json
  */
 function compareHoldings(walletHoldings: TokenHoldings, existingHoldings: TokenHoldings) {
-    logger.info("\n📊 COMPARISON RESULTS");
-    logger.info("=".repeat(70));
+    console.log("\n📊 COMPARISON RESULTS");
+    console.log("=".repeat(70));
     
     const missing: Array<{ conditionId: string; tokenId: string; amount: number }> = [];
     const different: Array<{ conditionId: string; tokenId: string; walletAmount: number; fileAmount: number }> = [];
@@ -215,50 +214,50 @@ function compareHoldings(walletHoldings: TokenHoldings, existingHoldings: TokenH
     }
     
     if (missing.length === 0 && different.length === 0 && extra.length === 0) {
-        logger.success("✅ All holdings match! No differences found.");
+        console.log("✅ All holdings match! No differences found.");
         return;
     }
     
     if (missing.length > 0) {
-        logger.warning(`\n⚠️  MISSING from token-holding.json (${missing.length} token(s)):`);
+        console.log(`\n⚠️  MISSING from token-holding.json (${missing.length} token(s)):`);
         for (const item of missing) {
-            logger.info(`   ConditionId: ${item.conditionId.substring(0, 20)}...`);
-            logger.info(`   TokenId: ${item.tokenId.substring(0, 20)}...`);
-            logger.info(`   Amount: ${item.amount.toFixed(2)} tokens`);
-            logger.info("");
+            console.log(`   ConditionId: ${item.conditionId.substring(0, 20)}...`);
+            console.log(`   TokenId: ${item.tokenId.substring(0, 20)}...`);
+            console.log(`   Amount: ${item.amount.toFixed(2)} tokens`);
+            console.log("");
         }
     }
     
     if (different.length > 0) {
-        logger.warning(`\n⚠️  DIFFERENT amounts (${different.length} token(s)):`);
+        console.log(`\n⚠️  DIFFERENT amounts (${different.length} token(s)):`);
         for (const item of different) {
-            logger.info(`   ConditionId: ${item.conditionId.substring(0, 20)}...`);
-            logger.info(`   TokenId: ${item.tokenId.substring(0, 20)}...`);
-            logger.info(`   Wallet: ${item.walletAmount.toFixed(2)} tokens`);
-            logger.info(`   File: ${item.fileAmount.toFixed(2)} tokens`);
-            logger.info(`   Difference: ${(item.walletAmount - item.fileAmount).toFixed(2)} tokens`);
-            logger.info("");
+            console.log(`   ConditionId: ${item.conditionId.substring(0, 20)}...`);
+            console.log(`   TokenId: ${item.tokenId.substring(0, 20)}...`);
+            console.log(`   Wallet: ${item.walletAmount.toFixed(2)} tokens`);
+            console.log(`   File: ${item.fileAmount.toFixed(2)} tokens`);
+            console.log(`   Difference: ${(item.walletAmount - item.fileAmount).toFixed(2)} tokens`);
+            console.log("");
         }
     }
     
     if (extra.length > 0) {
-        logger.info(`\nℹ️  IN FILE but not in wallet (${extra.length} token(s)) - may have been sold/redeemed:`);
+        console.log(`\nℹ️  IN FILE but not in wallet (${extra.length} token(s)) - may have been sold/redeemed:`);
         for (const item of extra) {
-            logger.info(`   ConditionId: ${item.conditionId.substring(0, 20)}...`);
-            logger.info(`   TokenId: ${item.tokenId.substring(0, 20)}...`);
-            logger.info(`   Amount in file: ${item.amount.toFixed(2)} tokens`);
-            logger.info("");
+            console.log(`   ConditionId: ${item.conditionId.substring(0, 20)}...`);
+            console.log(`   TokenId: ${item.tokenId.substring(0, 20)}...`);
+            console.log(`   Amount in file: ${item.amount.toFixed(2)} tokens`);
+            console.log("");
         }
     }
 }
 
 async function main() {
-    logger.title("🔄 SYNC HOLDINGS FROM WALLET");
-    logger.info("=".repeat(70));
+    console.log("🔄 SYNC HOLDINGS FROM WALLET");
+    console.log("=".repeat(70));
     
     const privateKey = env.PRIVATE_KEY;
     if (!privateKey) {
-        logger.error("❌ PRIVATE_KEY not found in .env file");
+        console.log("❌ PRIVATE_KEY not found in .env file");
         process.exit(1);
     }
     
@@ -269,33 +268,33 @@ async function main() {
     const wallet = new Wallet(privateKey, provider);
     const walletAddress = await wallet.getAddress();
     
-    logger.info(`Wallet: ${walletAddress}`);
-    logger.info(`Chain: ${chainId} (Polygon)`);
-    logger.info(`CTF Contract: ${contractConfig.conditionalTokens}`);
-    logger.info("");
+    console.log(`Wallet: ${walletAddress}`);
+    console.log(`Chain: ${chainId} (Polygon)`);
+    console.log(`CTF Contract: ${contractConfig.conditionalTokens}`);
+    console.log("");
     
     // Get existing holdings from file
     const existingHoldings = getAllHoldings();
-    logger.info(`Existing holdings in file: ${Object.keys(existingHoldings).length} market(s)`);
+    console.log(`Existing holdings in file: ${Object.keys(existingHoldings).length} market(s)`);
     
     // Get tokens from wallet
     const { holdings: walletHoldings, unknownTokens } = await getTokensFromWallet(walletAddress);
     
-    logger.info(`\nWallet holdings: ${Object.keys(walletHoldings).length} market(s)`);
+    console.log(`\nWallet holdings: ${Object.keys(walletHoldings).length} market(s)`);
     
     // Show unknown tokens
     if (unknownTokens.length > 0) {
-        logger.warning(`\n⚠️  Found ${unknownTokens.length} token(s) with unknown conditionIds:`);
-        logger.info("   These tokens are in your wallet but conditionId could not be determined.");
-        logger.info("   You may need to manually identify which market they belong to.");
-        logger.info("");
+        console.log(`\n⚠️  Found ${unknownTokens.length} token(s) with unknown conditionIds:`);
+        console.log("   These tokens are in your wallet but conditionId could not be determined.");
+        console.log("   You may need to manually identify which market they belong to.");
+        console.log("");
         for (const token of unknownTokens) {
-            logger.info(`   Position ID: ${token.tokenId}`);
-            logger.info(`   Balance: ${token.balance.toFixed(2)} tokens`);
-            logger.info("");
+            console.log(`   Position ID: ${token.tokenId}`);
+            console.log(`   Balance: ${token.balance.toFixed(2)} tokens`);
+            console.log("");
         }
-        logger.info("   💡 You can manually add these using: npm run manual-add-holdings");
-        logger.info("");
+        console.log("   💡 You can manually add these using: npm run manual-add-holdings");
+        console.log("");
     }
     
     // Compare
@@ -305,20 +304,20 @@ async function main() {
     if (Object.keys(walletHoldings).length > 0) {
         const walletHoldingsFile = resolve(process.cwd(), "src/data/wallet-holdings-sync.json");
         writeFileSync(walletHoldingsFile, JSON.stringify(walletHoldings, null, 2));
-        logger.info(`\n💾 Wallet holdings saved to: src/data/wallet-holdings-sync.json`);
-        logger.info("   (This is for reference - token-holding.json remains unchanged)");
+        console.log(`\n💾 Wallet holdings saved to: src/data/wallet-holdings-sync.json`);
+        console.log("   (This is for reference - token-holding.json remains unchanged)");
     }
     
     // Show summary
-    logger.info("\n" + "=".repeat(70));
-    logger.success("✅ Sync complete!");
-    logger.info(`\n📁 Wallet holdings saved to memory`);
-    logger.info(`📁 File holdings: src/data/token-holding.json`);
-    logger.info(`\n💡 To update token-holding.json with wallet data, use: npm run manual-add-holdings`);
+    console.log("\n" + "=".repeat(70));
+    console.log("✅ Sync complete!");
+    console.log(`\n📁 Wallet holdings saved to memory`);
+    console.log(`📁 File holdings: src/data/token-holding.json`);
+    console.log(`\n💡 To update token-holding.json with wallet data, use: npm run manual-add-holdings`);
 }
 
 main().catch((error) => {
-    logger.error("Fatal error:", error);
+    console.log("Fatal error:", error);
     process.exit(1);
 });
 

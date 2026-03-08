@@ -2,26 +2,18 @@ import { ApiKeyCreds, ClobClient, Chain } from "@polymarket/clob-client";
 import { writeFileSync, existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { Wallet } from "@ethersproject/wallet";
-import { logger } from "../utils/logger";
 import { env } from "../config/env";
 
 export async function createCredential(): Promise<ApiKeyCreds | null> {
     const privateKey = env.PRIVATE_KEY;
     if (!privateKey) {
-        logger.error("PRIVATE_KEY not found");
+        console.log("PRIVATE_KEY not found");
         return null;
     }
 
-    // Check if credentials already exist
-    // const credentialPath = resolve(process.cwd(), "src/data/credential.json");
-    // if (existsSync(credentialPath)) {
-    //     logger.info("Credentials already exist. Returning existing credentials.");
-    //     return JSON.parse(readFileSync(credentialPath, "utf-8"));
-    // }
-
     try {
         const wallet = new Wallet(privateKey);
-        logger.info(`Wallet address: ${wallet.address}`);
+        console.log(`Wallet address: ${wallet.address}`);
         const chainId = env.CHAIN_ID as Chain;
         const host = env.CLOB_API_URL;
         
@@ -30,10 +22,10 @@ export async function createCredential(): Promise<ApiKeyCreds | null> {
         const credential = await clobClient.createOrDeriveApiKey();
         
         await saveCredential(credential);
-        logger.success("Credential created successfully");
+        console.log("Credential created successfully");
         return credential;
     } catch (error) {
-        logger.error(`Error creating credential: ${error instanceof Error ? error.message : String(error)}`);
+        console.log(`Error creating credential: ${error instanceof Error ? error.message : String(error)}`);
         return null;
     }
 }   
